@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soulthread - Register</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="notif" class="notif"></div>
+
+<div class="screen active">
+  <nav>
+    <a href="index.html" class="logo" style="text-decoration:none">soul<span>thread</span></a>
+    <a href="index.html" class="btn btn-ghost btn-sm" style="text-decoration:none">← Back</a>
+  </nav>
+  <div class="scroll-body">
+    <div class="page-center">
+      <div class="form-wrap fade-in">
+        <div class="step-bar" id="reg-steps">
+          <div class="step-item"><div class="step-dot active" id="sd1">1</div></div>
+          <div class="step-item"><div class="step-line" id="sl1"></div><div class="step-dot pending" id="sd2">2</div></div>
+          <div class="step-item"><div class="step-line" id="sl2"></div><div class="step-dot pending" id="sd3">3</div></div>
+          <div class="step-item"><div class="step-line" id="sl3"></div><div class="step-dot pending" id="sd4">4</div></div>
+        </div>
+
+        <div id="reg-step-1">
+          <div class="anon-note"><div class="anon-note-icon">🎭</div><p><strong>Anonymous by default.</strong> We only use your email for account management.</p></div>
+          <div class="form-title">Create your account</div>
+          <div class="form-sub">Set up your private account. No real name required.</div>
+          <div class="field"><label>Your username</label><input id="r-username" type="text" placeholder="e.g. wandering_star"></div>
+          <div class="field"><label>Email address</label><input id="r-email" type="email" placeholder="your@email.com"></div>
+          <div class="field"><label>Password</label><input id="r-password" type="password" placeholder="At least 8 characters"></div>
+          <div class="field"><label>Phone Number (Shared on match)</label><input id="r-phone" type="text" placeholder="+123456789"></div>
+          <div class="field"><label>I identify as</label>
+            <select id="r-gender">
+              <option value="">— Select —</option>
+              <option>A woman</option><option>A man</option><option>Non-binary</option><option>Prefer not to say</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Age</label><input id="r-age" type="number" min="18" max="99" placeholder="e.g. 28"></div>
+            <div class="field"><label>Location</label><input id="r-location" type="text" placeholder="e.g. Cape Town"></div>
+          </div>
+          <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="regStep1()">Continue →</button>
+        </div>
+
+        <div id="reg-step-2" style="display:none">
+          <div class="form-title">Describe yourself</div>
+          <div class="field"><label>A few sentences about yourself</label><textarea id="r-bio" placeholder="e.g. I'm a night-owl who loves hiking..."></textarea></div>
+          <div class="field"><label>Your values</label>
+            <div class="tag-select" id="values-tags">
+              <span class="tag" onclick="toggleTag(this,'values')">Family first</span>
+              <span class="tag" onclick="toggleTag(this,'values')">Adventure</span>
+              <span class="tag" onclick="toggleTag(this,'values')">Intellectual curiosity</span>
+            </div>
+          </div>
+          <div class="field"><label>Your lifestyle</label>
+            <div class="tag-select" id="lifestyle-tags">
+              <span class="tag" onclick="toggleTag(this,'lifestyle')">Homebody</span>
+              <span class="tag" onclick="toggleTag(this,'lifestyle')">Social butterfly</span>
+              <span class="tag" onclick="toggleTag(this,'lifestyle')">Outdoorsy</span>
+            </div>
+          </div>
+          <div class="field"><label>Relationship goal</label>
+            <div class="tag-select" id="goal-tags">
+              <span class="tag" onclick="toggleTagSingle(this,'goal')">Serious & long-term</span>
+              <span class="tag" onclick="toggleTagSingle(this,'goal')">Open to see where it goes</span>
+            </div>
+          </div>
+          <div class="btn-group" style="justify-content:flex-start;margin-top:1.5rem">
+            <button class="btn btn-ghost" onclick="showRegStep(1)">← Back</button>
+            <button class="btn btn-primary" onclick="regStep2()">Continue →</button>
+          </div>
+        </div>
+
+        <div id="reg-step-3" style="display:none">
+          <div class="form-title">Your preferences</div>
+          <div class="field"><label>I'm interested in</label>
+            <select id="r-seeking">
+              <option value="">— Select —</option>
+              <option>Women</option><option>Men</option><option>Any gender</option>
+            </select>
+          </div>
+          <div class="field"><label>Age range you'd consider</label>
+            <div class="range-wrap" style="margin-bottom:6px">
+              <span style="font-size:0.78rem;color:var(--ink-3);width:30px">Min</span>
+              <input type="range" id="r-age-min" min="18" max="70" value="22" oninput="document.getElementById('age-min-v').textContent=this.value" style="flex:1">
+              <span class="range-val" id="age-min-v">22</span>
+            </div>
+            <div class="range-wrap">
+              <span style="font-size:0.78rem;color:var(--ink-3);width:30px">Max</span>
+              <input type="range" id="r-age-max" min="18" max="80" value="40" oninput="document.getElementById('age-max-v').textContent=this.value" style="flex:1">
+              <span class="range-val" id="age-max-v">40</span>
+            </div>
+          </div>
+          <div class="btn-group" style="justify-content:flex-start;margin-top:1.5rem">
+            <button class="btn btn-ghost" onclick="showRegStep(2)">← Back</button>
+            <button class="btn btn-primary" onclick="submitProfileToBackend()">Save Profile & Continue →</button>
+          </div>
+        </div>
+
+        <div id="reg-step-4" style="display:none">
+          <div class="form-title">Activate your profile</div>
+          <div class="payment-card">
+            <div class="plan-badge">Lifetime Access</div>
+            <div class="plan-price"><sup>$</sup>29<sub>/once off</sub></div>
+          </div>
+          <div class="field"><label>Name for Billing</label><input id="pay-name" type="text" placeholder="John Doe"></div>
+          <button class="btn btn-primary" style="width:100%;justify-content:center;font-size:1rem;padding:1rem" onclick="processRealPayment()" id="pay-btn">Pay & Activate via PayFast</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

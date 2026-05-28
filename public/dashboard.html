@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soulthread - Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Premium Dashboard Specific Styles */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        @media (min-width: 800px) {
+            .dashboard-grid {
+                grid-template-columns: 1.8fr 1fr;
+            }
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            border-radius: var(--r, 16px);
+            padding: 2.5rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.03);
+        }
+        .glass-card-sm {
+            padding: 1.5rem;
+        }
+        .pulse-icon {
+            display: inline-block;
+            animation: pulse 2.5s infinite ease-in-out;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.7; }
+            50% { transform: scale(1.1); opacity: 1; text-shadow: 0 0 25px var(--gold); }
+            100% { transform: scale(0.95); opacity: 0.7; }
+        }
+        .snapshot-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.8rem 0;
+            border-bottom: 1px solid var(--cream-2, #f0ece3);
+            font-size: 0.9rem;
+        }
+        .snapshot-item:last-child {
+            border-bottom: none;
+        }
+        .snapshot-label {
+            color: var(--ink-3, #7a7168);
+        }
+        .snapshot-value {
+            font-weight: 500;
+            color: var(--ink, #1e1a17);
+        }
+    </style>
+</head>
+<body>
+<div id="notif" class="notif"></div>
+
+<div class="screen active fade-in">
+  <nav>
+    <a href="index.html" class="logo" style="text-decoration:none">soul<span>thread</span></a>
+    <div style="display:flex;align-items:center;gap:16px">
+      <span id="nav-username" style="font-size:0.85rem;color:var(--ink-2); font-weight: 500;">My Account</span>
+      <a href="index.html" class="btn btn-ghost btn-sm" style="text-decoration:none">Sign out</a>
+    </div>
+  </nav>
+  
+  <div class="scroll-body">
+    <div class="page-center" style="max-width: 1000px; padding: 2rem 1.5rem;">
+      
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid var(--cream-2, #f0ece3); padding-bottom: 1.5rem;">
+        <div>
+          <div style="font-size:0.75rem; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--gold, #b8956a); margin-bottom:0.5rem">Private Dashboard</div>
+          <h1 style="font-family: var(--serif); font-size: 2.8rem; color: var(--ink); margin: 0; line-height: 1.1;" id="dash-greeting">Welcome back.</h1>
+        </div>
+        <div style="background: rgba(184, 149, 106, 0.1); color: var(--gold-dark, #7a5f3e); padding: 0.5rem 1.2rem; border-radius: 50px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+          <span style="display:inline-block; width:8px; height:8px; background:var(--gold); border-radius:50%;"></span> Profile Active
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        
+        <div class="glass-card" style="text-align: center; display: flex; flex-direction: column; justify-content: center; min-height: 400px;">
+          <div class="pulse-icon" style="font-size: 4rem; margin-bottom: 1.5rem;">✨</div>
+          <h2 style="font-family: var(--serif); font-size: 2rem; margin-bottom: 1rem; color: var(--ink);">Curating your match</h2>
+          <p style="color: var(--ink-3); line-height: 1.7; max-width: 450px; margin: 0 auto 2.5rem; font-size: 1.05rem;">
+            Our algorithm is quietly exploring compatibility networks to find someone whose values, lifestyle, and intentions align deeply with yours. 
+          </p>
+          <div style="background: var(--cream, #faf8f4); padding: 1.2rem; border-radius: var(--r); display: inline-block; margin: 0 auto; border: 1px solid var(--cream-2);">
+            <span style="font-size: 0.9rem; color: var(--ink-2); font-weight: 500;">Estimated Time to Match: 1–3 days</span>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            
+          <div class="glass-card glass-card-sm">
+            <h3 style="font-family: var(--serif); font-size: 1.4rem; margin-bottom: 1rem; color: var(--ink);">Your Identity Shield</h3>
+            <p style="font-size: 0.85rem; color: var(--ink-3); margin-bottom: 1.5rem; line-height: 1.6;">Your real name and contact details are currently locked. They will only be revealed upon mutual consent.</p>
+            
+            <div class="snapshot-item">
+                <span class="snapshot-label">Status</span>
+                <span class="snapshot-value" style="color: var(--gold-dark);">🎭 Anonymous</span>
+            </div>
+            <div class="snapshot-item">
+                <span class="snapshot-label">Goal</span>
+                <span class="snapshot-value">Deep Connection</span>
+            </div>
+            <div class="snapshot-item">
+                <span class="snapshot-label">Algorithm</span>
+                <span class="snapshot-value">Active Searching</span>
+            </div>
+          </div>
+
+          <div class="glass-card glass-card-sm" style="display: flex; flex-direction: column; justify-content: center; text-align: center;">
+            <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚙️</div>
+            <h3 style="font-family: var(--serif); font-size: 1.2rem; margin-bottom: 1rem; color: var(--ink);">Refine Algorithm</h3>
+            <button class="btn btn-ghost" style="width: 100%; justify-content: center; font-size: 0.9rem; border: 1px solid var(--cream-3); background: transparent;">Update Preferences</button>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

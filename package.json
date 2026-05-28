@@ -1,0 +1,35 @@
+{
+  "name": "dating-site",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CloudyG29/Dating-site.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/CloudyG29/Dating-site/issues"
+  },
+  "homepage": "https://github.com/CloudyG29/Dating-site#readme",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "crypto": "^1.0.1",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "firebase-admin": "^13.10.0",
+    "helmet": "^8.2.0",
+    "morgan": "^1.10.1",
+    "nodemailer": "^8.0.9"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
