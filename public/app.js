@@ -1,8 +1,43 @@
+// Import Firebase core and Auth modules
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, getIdToken } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBV4ztQm7sxiEFyAFsvCWLclitY-6cq4T8",
+  authDomain: "linkup-7880e.firebaseapp.com",
+  projectId: "linkup-7880e",
+  storageBucket: "linkup-7880e.firebasestorage.app",
+  messagingSenderId: "1029218787471",
+  appId: "1:1029218787471:web:12b1ecd53626beb7f6d0fa",
+  measurementId: "G-VW5F5YZGND"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
+// Update your state to hold the Firebase Token
 let state = {
     step: 1,
     tagSelections: {},
-    user: {}
+    user: {},
+    authToken: null // New property to securely talk to your backend
 };
+
+// Listen for authentication changes
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        state.authToken = await getIdToken(user);
+    } else {
+        state.authToken = null;
+    }
+});
 
 function showNotif(msg, type='success') {
     const n = document.getElementById('notif');
@@ -75,9 +110,23 @@ async function submitProfileToBackend() {
     state.user.ageMax = parseInt(document.getElementById('r-age-max').value);
 
     try {
+        // 1. Create the user in Firebase Auth
+        const userCredential = await createUserWithEmailAndPassword(
+            auth, 
+            state.user.email, 
+            state.user.password
+        );
+        
+        // 2. Get their secure access token
+        const token = await getIdToken(userCredential.user);
+
+        // 3. Send the profile data to your Render Backend, attaching the token!
         const res = await fetch('/api/auth/profile', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` // This unlocks the gatekeeper middleware
+            },
             body: JSON.stringify(state.user)
         });
         
@@ -85,12 +134,11 @@ async function submitProfileToBackend() {
         const data = await res.json();
         
         if(data.success) {
-            showRegStep(4);
+            showRegStep(4); // Move to payment screen
         }
     } catch (err) {
+        // Handle issues like "Email already in use" or "Weak password"
         showNotif(err.message, 'error');
-        // Fallback for UI testing if server is off:
-        showRegStep(4);
     }
 }
 
@@ -127,3 +175,34 @@ async function processRealPayment() {
         setTimeout(() => window.location.href = 'dashboard.html', 1500);
     }
 }
+
+// --- LOGIN PAGE LOGIC ---
+document.addEventListener('DOMContentLoaded', () => {
+    const loginForm = document.getElementById('login-form');
+    
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault(); // Prevent page reload
+            
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const btn = loginForm.querySelector('button');
+            const originalText = btn.innerText;
+            
+            btn.innerText = 'Signing in...';
+
+            try {
+                // Securely log in via Firebase
+                await signInWithEmailAndPassword(auth, email, password);
+                
+                // On success, redirect to the dashboard
+                window.location.href = 'dashboard.html';
+            } catch (error) {
+                console.error("Login Error:", error);
+                // The showNotif function assumes you have it defined in your app.js from previous steps
+                showNotif('Invalid email or password. Please try again.', 'error');
+                btn.innerText = originalText;
+            }
+        });
+    }
+});
