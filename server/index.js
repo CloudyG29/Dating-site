@@ -6,9 +6,9 @@
 // const rateLimit = require('express-rate-limit');
 // const path = require('path');
 
-// // const authRoutes = require('./routes/auth');
-// // const paymentRoutes = require('./routes/payment');
-// // const matchRoutes = require('./routes/matches');
+// const authRoutes = require('./routes/auth');
+// const paymentRoutes = require('./routes/payment');
+// const matchRoutes = require('./routes/matches');
 
 // const app = express();
 // const PORT = process.env.PORT || 3000;
@@ -58,9 +58,9 @@
 // }
 
 // // ─── API Routes ───────────────────────────────────────────
-// // app.use('/api/auth', authRoutes);
-// // app.use('/payment', paymentRoutes);
-// // app.use('/api/matches', matchRoutes);
+// app.use('/api/auth', authRoutes);
+// app.use('/payment', paymentRoutes);
+// app.use('/api/matches', matchRoutes);
 
 // // ─── Health check ─────────────────────────────────────────
 // app.get('/health', (req, res) => res.json({ status: 'ok', env: process.env.NODE_ENV }));
@@ -68,12 +68,12 @@
 // // ─── Serve frontend (production) ──────────────────────────
 // // In development Firebase Hosting serves the frontend.
 // // In production (if hosting both on same server) serve from /public
-// // if (process.env.NODE_ENV === 'production') {
+// if (process.env.NODE_ENV === 'production') {
 //   app.use(express.static(path.join(__dirname, '../public')));
-//   app.get('*', (req, res) => {
+//   app.get('/', (req, res) => {
 //     res.sendFile(path.join(__dirname, '../public/index.html'));
 //   });
-// // }
+// }
 
 // // ─── Global error handler ─────────────────────────────────
 // app.use((err, req, res, next) => {
@@ -88,6 +88,8 @@
 // });
 
 // module.exports = app;
+
+// COMMENTED OUT FOR TESTING PURPOSES ONLY - TO ISOLATE FRONTEND ISSUES
 
 require('dotenv').config();
 const express = require('express');
