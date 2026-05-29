@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soulthread - Preferences</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="notif" class="notif"></div>
+
+<div class="screen active fade-in">
+  <nav>
+    <a href="dashboard.html" class="logo" style="text-decoration:none">soul<span>thread</span></a>
+    <div style="display:flex;align-items:center;gap:16px">
+      <a href="dashboard.html" class="btn btn-ghost btn-sm" style="text-decoration:none">← Back to Dashboard</a>
+    </div>
+  </nav>
+
+  <div class="scroll-body">
+    <div class="page-center">
+      <div class="form-wrap" style="max-width: 700px; padding: 2.5rem; background: var(--white); border: 1px solid var(--cream-2); border-radius: var(--r2); box-shadow: var(--shadow);">
+        
+        <div style="margin-bottom: 2rem; border-bottom: 1px solid var(--cream-2); padding-bottom: 1.5rem; text-align: center;">
+          <h1 class="form-title" style="font-size: 2.2rem; color: var(--ink);">Refine Algorithm</h1>
+          <p class="form-sub" style="margin-bottom: 0;">Adjust your tags to calibrate who the engine pairs you with.</p>
+        </div>
+
+        <div id="pref-loading" style="text-align: center; padding: 3rem 0; color: var(--ink-3);">
+           Fetching your current algorithm tags... ✨
+        </div>
+
+        <form id="edit-pref-form" style="display: none;">
+          
+          <div style="margin-bottom: 2rem;">
+            <label style="font-weight: 500; color: var(--ink); margin-bottom: 1rem; display: block;">Core Values</label>
+            <div class="tags" id="pref-values">
+              <div class="tag" onclick="toggleTag(this, 'values')">Faith</div>
+              <div class="tag" onclick="toggleTag(this, 'values')">Ambition</div>
+              <div class="tag" onclick="toggleTag(this, 'values')">Family Focus</div>
+              <div class="tag" onclick="toggleTag(this, 'values')">Creativity</div>
+              <div class="tag" onclick="toggleTag(this, 'values')">Honesty</div>
+              <div class="tag" onclick="toggleTag(this, 'values')">Empathy</div>
+              <div class="tag" onclick="toggleTag(this, 'values')">Growth</div>
+              <div class="tag" onclick="toggleTag(this, 'values')">Independence</div>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 2rem;">
+            <label style="font-weight: 500; color: var(--ink); margin-bottom: 1rem; display: block;">Lifestyle</label>
+            <div class="tags" id="pref-lifestyle">
+              <div class="tag" onclick="toggleTag(this, 'lifestyle')">Early Bird</div>
+              <div class="tag" onclick="toggleTag(this, 'lifestyle')">Night Owl</div>
+              <div class="tag" onclick="toggleTag(this, 'lifestyle')">Active</div>
+              <div class="tag" onclick="toggleTag(this, 'lifestyle')">Homebody</div>
+              <div class="tag" onclick="toggleTag(this, 'lifestyle')">Sober</div>
+              <div class="tag" onclick="toggleTag(this, 'lifestyle')">Traveler</div>
+              <div class="tag" onclick="toggleTag(this, 'lifestyle')">Foodie</div>
+              <div class="tag" onclick="toggleTag(this, 'lifestyle')">Pet Lover</div>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 2.5rem;">
+            <label style="font-weight: 500; color: var(--ink); margin-bottom: 1rem; display: block;">Ultimate Goal</label>
+            <div class="tags" id="pref-goal">
+              <div class="tag" onclick="toggleTagSingle(this, 'goal')">Marriage</div>
+              <div class="tag" onclick="toggleTagSingle(this, 'goal')">Life Partner</div>
+              <div class="tag" onclick="toggleTagSingle(this, 'goal')">Deep Connection</div>
+              <div class="tag" onclick="toggleTagSingle(this, 'goal')">Intentional Dating</div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem; font-size: 1rem;" id="pref-save-btn">Update Algorithm</button>
+        </form>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
