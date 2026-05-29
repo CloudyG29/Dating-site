@@ -1,11 +1,6 @@
-// Import Firebase core and Auth modules
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, getIdToken } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, getIdToken, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
@@ -21,6 +16,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
+const auth = getAuth(app);
 
 // Update your state to hold the Firebase Token
 let state = {
@@ -34,8 +30,19 @@ let state = {
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         state.authToken = await getIdToken(user);
+        
+        if (window.location.pathname.includes('profile.html')) {
+            fetchUserProfile();
+        }
+        // ADD THIS: Check for preferences page
+        if (window.location.pathname.includes('preferences.html')) {
+            fetchUserPreferences();
+        }
     } else {
         state.authToken = null;
+        if (window.location.pathname.includes('dashboard.html') || window.location.pathname.includes('profile.html') || window.location.pathname.includes('preferences.html')) {
+            window.location.href = 'login.html';
+        }
     }
 });
 
@@ -206,3 +213,188 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// --- FORGOT PASSWORD LOGIC ---
+const forgotBtn = document.getElementById('forgot-password');
+if (forgotBtn) {
+    forgotBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const emailInput = document.getElementById('login-email').value.trim();
+        
+        if (!emailInput) {
+            showNotif('Please enter your email address first, then click Forgot.', 'error');
+            return;
+        }
+
+        try {
+            await sendPasswordResetEmail(auth, emailInput);
+            showNotif('Password reset email sent! Check your inbox.', 'success');
+        } catch (error) {
+            console.error("Reset Error:", error);
+            showNotif('Failed to send reset email. Make sure the email is correct.', 'error');
+        }
+    });
+}
+
+// --- PROFILE PAGE LOGIC ---
+
+// 1. Fetch user data and populate the form
+async function fetchUserProfile() {
+    try {
+        const res = await fetch('/api/auth/profile', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${state.authToken}`
+            }
+        });
+        
+        if (!res.ok) throw new Error('Could not fetch profile');
+        const data = await res.json();
+        
+        // Populate the form fields with the database values
+        document.getElementById('p-username').value = data.handle || '';
+        document.getElementById('p-phone').value = data.phone || '';
+        document.getElementById('p-age').value = data.age || '';
+        document.getElementById('p-location').value = data.location || '';
+        document.getElementById('p-gender').value = data.gender || 'A woman';
+        document.getElementById('p-bio').value = data.bio || '';
+        document.getElementById('p-seeking').value = data.seeking || 'Any gender';
+
+        // Hide loading text and show the form
+        document.getElementById('profile-loading').style.display = 'none';
+        document.getElementById('edit-profile-form').style.display = 'block';
+
+        // Keep a copy of their existing tags/preferences so we don't overwrite them with empties
+        state.user = data; 
+    } catch (error) {
+        showNotif('Failed to load profile. Please refresh.', 'error');
+    }
+}
+
+// 2. Handle the Save Changes button
+document.addEventListener('DOMContentLoaded', () => {
+    const editForm = document.getElementById('edit-profile-form');
+    if (editForm) {
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('p-save-btn');
+            btn.innerText = 'Saving...';
+
+            // Gather updated data
+            const updatedProfile = {
+                ...state.user, // Spread existing data so we don't lose tags/matches
+                handle: document.getElementById('p-username').value,
+                phone: document.getElementById('p-phone').value,
+                age: parseInt(document.getElementById('p-age').value),
+                location: document.getElementById('p-location').value,
+                gender: document.getElementById('p-gender').value,
+                bio: document.getElementById('p-bio').value,
+                seeking: document.getElementById('p-seeking').value
+            };
+
+            try {
+                // Send back to the same backend endpoint (your auth.js route uses `{ merge: true }` so it handles updates natively!)
+                const res = await fetch('/api/auth/profile', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${state.authToken}`
+                    },
+                    body: JSON.stringify(updatedProfile)
+                });
+
+                if (!res.ok) throw new Error('Failed to update profile');
+                
+                showNotif('Profile updated successfully! ✨', 'success');
+                btn.innerText = 'Save Changes';
+            } catch (error) {
+                showNotif('Could not save profile changes.', 'error');
+                btn.innerText = 'Save Changes';
+            }
+        });
+    }
+});
+// --- PREFERENCES PAGE LOGIC ---
+
+async function fetchUserPreferences() {
+    try {
+        const res = await fetch('/api/auth/profile', {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${state.authToken}` }
+        });
+        
+        if (!res.ok) throw new Error('Could not fetch preferences');
+        const data = await res.json();
+        state.user = data; // Store the base profile
+
+        // Pre-fill the state tag selections from the database
+        state.tagSelections.values = data.values || [];
+        state.tagSelections.lifestyle = data.lifestyle || [];
+        state.tagSelections.goal = data.goal ? [data.goal] : [];
+
+        // Highlight the selected tags in the UI
+        document.querySelectorAll('.tag').forEach(tagEl => {
+            const group = tagEl.closest('.tags').id.replace('pref-', ''); // e.g. "values", "lifestyle", "goal"
+            const tagValue = tagEl.textContent;
+            
+            if (state.tagSelections[group] && state.tagSelections[group].includes(tagValue)) {
+                tagEl.classList.add('active');
+            }
+        });
+
+        // Show the form
+        document.getElementById('pref-loading').style.display = 'none';
+        document.getElementById('edit-pref-form').style.display = 'block';
+    } catch (error) {
+        showNotif('Failed to load preferences. Please refresh.', 'error');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const prefForm = document.getElementById('edit-pref-form');
+    if (prefForm) {
+        prefForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('pref-save-btn');
+            btn.innerText = 'Updating Engine...';
+
+            // Merge new tags with existing user data
+            const updatedProfile = {
+                ...state.user,
+                values: state.tagSelections.values || [],
+                lifestyle: state.tagSelections.lifestyle || [],
+                goal: (state.tagSelections.goal || [])[0] || ''
+            };
+
+            try {
+                const res = await fetch('/api/auth/profile', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${state.authToken}`
+                    },
+                    body: JSON.stringify(updatedProfile)
+                });
+
+                if (!res.ok) throw new Error('Failed to update preferences');
+                
+                showNotif('Algorithm recalibrated! ✨', 'success');
+                btn.innerText = 'Update Algorithm';
+            } catch (error) {
+                showNotif('Could not update preferences.', 'error');
+                btn.innerText = 'Update Algorithm';
+            }
+        });
+    }
+});
+
+// --- EXPOSE FUNCTIONS TO HTML ---
+// Because this script is a module, inline onclick="" handlers in HTML can't see these functions automatically.
+window.showNotif = showNotif;
+window.toggleTag = toggleTag;
+window.toggleTagSingle = toggleTagSingle;
+window.showRegStep = showRegStep;
+window.regStep1 = regStep1;
+window.regStep2 = regStep2;
+window.submitProfileToBackend = submitProfileToBackend;
+window.processRealPayment = processRealPayment;
