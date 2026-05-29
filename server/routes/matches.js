@@ -1,45 +1,102 @@
-router.post('/respond', async (req, res) => {
-    const { uid, matchId, decision } = req.body; // decision: 'accept' | 'decline'
-  
-    const matchRef = db.collection('matches').doc(matchId);
-    const matchSnap = await matchRef.get();
-    const match = matchSnap.data();
-  
-    const isUser1 = match.user1 === uid;
-    const updateField = isUser1 ? 'user1Accepted' : 'user2Accepted';
-  
-    if (decision === 'decline') {
-      await matchRef.update({ status: 'declined' });
-      // Re-queue both users for a new match
-      await db.collection('users').doc(uid).update({ matchId: null });
-      return res.json({ status: 'declined' });
+const express = require('express');
+const router = express.Router();
+const prisma = require('../prisma');
+const { requireAuth } = require('../middleware/auth');
+
+// GET: Fetch all matches for the current user
+router.get('/', requireAuth, async (req, res) => {
+    try {
+        const matches = await prisma.match.findMany({
+            where: {
+                OR: [{ userAId: req.uid }, { userBId: req.uid }]
+            },
+            include: {
+                userA: { include: { profile: true } },
+                userB: { include: { profile: true } }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        // PRIVACY FILTER: Strip out sensitive info before sending to frontend
+        const safeMatches = matches.map(match => {
+            const isUserA = match.userAId === req.uid;
+            const otherUser = isUserA ? match.userB : match.userA;
+            const myConsent = isUserA ? match.userAConsent : match.userBConsent;
+
+            let partnerData = {
+                displayAlias: otherUser.profile.displayAlias,
+                bio: otherUser.profile.bio,
+                values: otherUser.profile.values,
+                compatibilityScore: match.compatibilityScore
+            };
+
+            // Only attach the phone number if the status is REVEALED
+            if (match.status === 'REVEALED') {
+                partnerData.phone = otherUser.phone;
+            }
+
+            return {
+                matchId: match.id,
+                status: match.status,
+                myConsent: myConsent,
+                partner: partnerData
+            };
+        });
+
+        res.json(safeMatches);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch matches' });
     }
-  
-    await matchRef.update({ [updateField]: true });
-  
-    // Check if both accepted
-    const updated = (await matchRef.get()).data();
-    if (updated.user1Accepted && updated.user2Accepted) {
-      await matchRef.update({ status: 'mutual' });
-  
-      // Fetch both user profiles for contact exchange
-      const [u1Snap, u2Snap] = await Promise.all([
-        db.collection('users').doc(match.user1).get(),
-        db.collection('users').doc(match.user2).get(),
-      ]);
-  
-      const u1 = u1Snap.data();
-      const u2 = u2Snap.data();
-  
-      // Return the OTHER user's contact details to the requester
-      const theirDetails = isUser1
-        ? { handle: u2.handle, email: u2.email, phone: u2.phone, age: u2.age, location: u2.location }
-        : { handle: u1.handle, email: u1.email, phone: u1.phone, age: u1.age, location: u1.location };
-  
-      // (Optional) Send email notifications via nodemailer here
-  
-      return res.json({ status: 'mutual', contact: theirDetails });
+});
+
+// POST: Accept or Decline a Match
+router.post('/:matchId/consent', requireAuth, async (req, res) => {
+    const { matchId } = req.params;
+    const { consent } = req.body; // 'ACCEPTED' or 'DECLINED'
+
+    try {
+        const match = await prisma.match.findUnique({ where: { id: matchId } });
+        if (!match) return res.status(404).json({ error: 'Match not found' });
+
+        const isUserA = match.userAId === req.uid;
+        const isUserB = match.userBId === req.uid;
+
+        if (!isUserA && !isUserB) {
+            return res.status(403).json({ error: 'Not authorized for this match' });
+        }
+
+        // Determine which side of the match to update
+        const updateData = isUserA 
+            ? { userAConsent: consent } 
+            : { userBConsent: consent };
+
+        let updatedMatch = await prisma.match.update({
+            where: { id: matchId },
+            data: updateData
+        });
+
+        // CHECK MUTUAL CONSENT LOGIC
+        if (consent === 'DECLINED') {
+            updatedMatch = await prisma.match.update({
+                where: { id: matchId },
+                data: { status: 'REJECTED' }
+            });
+        } else if (updatedMatch.userAConsent === 'ACCEPTED' && updatedMatch.userBConsent === 'ACCEPTED') {
+            updatedMatch = await prisma.match.update({
+                where: { id: matchId },
+                data: { 
+                    status: 'REVEALED',
+                    revealedAt: new Date()
+                }
+            });
+        }
+
+        res.json({ success: true, status: updatedMatch.status });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to update consent' });
     }
-  
-    res.json({ status: 'waiting' }); // waiting for other party
-  });
+});
+
+module.exports = router;
