@@ -1,78 +1,75 @@
-// ─── CONFIG (swap these out) ──────────────────────────────
-const CURRENT_USER_ID = 1; // logged-in user's ID from your session/auth
-const MATCH_ID = 5; // ID of the accepted request (from requests table)
-// ──────────────────────────────────────────────────────────
+const express = require("express");
+const router = express.Router();
+const { PrismaClient } = require("@prisma/client");
+const { requireAuth } = require("../middleware/auth");
 
-const messagesEl = document.getElementById("messages");
-const input = document.getElementById("msg-input");
-const pollStatus = document.getElementById("poll-status");
+const prisma = new PrismaClient();
 
-const messageIds = new Set(); // prevents duplicate renders on every poll
+// GET /api/messages/:matchId
+router.get("/:matchId", requireAuth, async (req, res) => {
+  const matchId = parseInt(req.params.matchId);
 
-function formatTime() {
-  return new Date().toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+  try {
+    const match = await prisma.request.findFirst({
+      where: {
+        id: matchId,
+        status: "accepted",
+        OR: [{ senderId: req.userId }, { receiverId: req.userId }],
+      },
+    });
 
-// Builds and appends a message bubble to the chat window
-function renderMessage(msg) {
-  if (messageIds.has(msg.id)) return; // already rendered, skip
-  messageIds.add(msg.id);
+    if (!match) {
+      return res.status(403).json({ error: "Access denied" });
+    }
 
-  const isMine = msg.senderId === CURRENT_USER_ID;
-  const div = document.createElement("div");
-  div.className = `msg ${isMine ? "mine" : "theirs"}`;
-  div.innerHTML = `
-    <div class="bubble">${msg.content}</div>
-    <div class="msg-time">${msg.sentAt}</div>
-  `;
-  messagesEl.appendChild(div);
-  messagesEl.scrollTop = messagesEl.scrollHeight; // auto-scroll to bottom
-}
+    const messages = await prisma.message.findMany({
+      where: { matchId },
+      orderBy: { sentAt: "asc" },
+    });
 
-// Sends a new message to the backend
-async function sendMessage() {
-  const content = input.value.trim();
-  if (!content) return;
-  input.value = "";
-
-  // Show message instantly without waiting for server (optimistic UI)
-  renderMessage({
-    id: `local-${Date.now()}`,
-    senderId: CURRENT_USER_ID,
-    content,
-    sentAt: formatTime(),
-  });
-
-  await fetch("/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      matchId: MATCH_ID,
-      senderId: CURRENT_USER_ID,
-      content,
-    }),
-  });
-}
-
-// Asks the backend for new messages every 3 seconds
-async function poll() {
-  const res = await fetch(`/messages/${MATCH_ID}`);
-  const messages = await res.json();
-  messages.forEach(renderMessage); // renderMessage skips any already shown
-  pollStatus.textContent = `Last synced at ${formatTime()}`;
-}
-
-// Wire up send button and Enter key
-document.getElementById("send-btn").addEventListener("click", sendMessage);
-input.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") sendMessage();
+    res.json(messages);
+  } catch (err) {
+    console.error("Failed to load messages:", err);
+    res.status(500).json({ error: "Failed to load messages" });
+  }
 });
 
-// Load existing messages immediately when chat opens
-poll();
+// POST /api/messages
+router.post("/", requireAuth, async (req, res) => {
+  const { matchId, content } = req.body;
 
-// Then keep polling every 3 seconds
-setInterval(poll, 3000);
+  if (!matchId || !content) {
+    return res.status(400).json({ error: "matchId and content are required" });
+  }
+
+  try {
+    const match = await prisma.request.findFirst({
+      where: {
+        id: parseInt(matchId),
+        status: "accepted",
+        OR: [{ senderId: req.userId }, { receiverId: req.userId }],
+      },
+    });
+
+    if (!match) {
+      return res
+        .status(403)
+        .json({ error: "Not matched or match not accepted" });
+    }
+
+    const message = await prisma.message.create({
+      data: {
+        matchId: parseInt(matchId),
+        senderId: req.userId,
+        content,
+      },
+    });
+
+    res.json(message);
+  } catch (err) {
+    console.error("Failed to save message:", err);
+    res.status(500).json({ error: "Failed to save message" });
+  }
+});
+
+module.exports = router;
