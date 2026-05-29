@@ -269,15 +269,35 @@
       </div>
     </div>
 
-    <script>
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+      import {
+        getAuth,
+        onAuthStateChanged,
+        getIdToken,
+      } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyBV4ztQm7sxiEFyAFsvCWLclitY-6cq4T8",
+        authDomain: "linkup-7880e.firebaseapp.com",
+        projectId: "linkup-7880e",
+        storageBucket: "linkup-7880e.firebasestorage.app",
+        messagingSenderId: "1029218787471",
+        appId: "1:1029218787471:web:12b1ecd53626beb7f6d0fa",
+        measurementId: "G-VW5F5YZGND",
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+
       const messagesEl = document.getElementById("messages");
       const input = document.getElementById("msg-input");
       const pollStatus = document.getElementById("poll-status");
 
-      const CURRENT_USER_ID = 1; // replace with logged-in user's ID
-      const MATCH_ID = 5; // replace with actual match ID
-
+      const matchId = new URLSearchParams(window.location.search).get('matchId');
       const messageIds = new Set();
+      let currentUid = null;
+      let authToken = null;
 
       function formatTime() {
         return new Date().toLocaleTimeString([], {
@@ -290,7 +310,7 @@
         if (messageIds.has(msg.id)) return;
         messageIds.add(msg.id);
 
-        const isMine = msg.senderId === CURRENT_USER_ID;
+        const isMine = msg.senderUid === currentUid;
         const div = document.createElement("div");
         div.className = `msg ${isMine ? "mine" : "theirs"}`;
         div.innerHTML = `
@@ -301,25 +321,58 @@
         messagesEl.scrollTop = messagesEl.scrollHeight;
       }
 
+      function getAuthHeaders() {
+        return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+      }
+
       async function sendMessage() {
         const content = input.value.trim();
-        if (!content) return;
+        if (!content || !matchId || !currentUid) return;
         input.value = "";
 
-        // Optimistic render — shows instantly without waiting for server
         renderMessage({
           id: `local-${Date.now()}`,
-          senderId: CURRENT_USER_ID,
+          senderUid: currentUid,
           content,
           sentAt: formatTime(),
         });
 
-        // TODO: uncomment when backend is ready
-        // await fetch('/messages', {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify({ matchId: MATCH_ID, senderId: CURRENT_USER_ID, content })
-        // });
+        try {
+          await fetch('/api/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeaders(),
+            },
+            body: JSON.stringify({ matchId, content }),
+          });
+        } catch (err) {
+          console.error('Message send failed:', err);
+        }
+      }
+
+      async function poll() {
+        if (!matchId || !currentUid) {
+          pollStatus.textContent = 'Waiting for chat authentication...';
+          return;
+        }
+
+        try {
+          const res = await fetch(`/api/messages/${matchId}`, {
+            headers: getAuthHeaders(),
+          });
+          if (!res.ok) {
+            const error = await res.json();
+            pollStatus.textContent = error.error || 'Unable to load messages';
+            return;
+          }
+          const messages = await res.json();
+          messages.forEach(renderMessage);
+          pollStatus.textContent = `Last synced at ${formatTime()} · polling every 3s`;
+        } catch (err) {
+          console.error('Message poll failed:', err);
+          pollStatus.textContent = 'Unable to sync messages';
+        }
       }
 
       document
@@ -329,41 +382,18 @@
         if (e.key === "Enter") sendMessage();
       });
 
-      async function poll() {
-        // TODO: uncomment when backend is ready
-        // const res = await fetch(`/messages/${MATCH_ID}`);
-        // const messages = await res.json();
-        // messages.forEach(renderMessage);
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          window.location.href = 'login.html';
+          return;
+        }
 
-        pollStatus.textContent = `Last synced at ${formatTime()} · polling every 3s`;
-      }
+        currentUid = user.uid;
+        authToken = await getIdToken(user);
+        await poll();
+      });
 
       setInterval(poll, 3000);
-
-      // TODO: uncomment when backend is ready to load existing messages on open
-      // poll();
-
-      // Demo messages — delete these when backend is wired up
-      [
-        {
-          id: 1,
-          senderId: 2,
-          content: "Hey! Saw we matched 👀",
-          sentAt: "10:42 AM",
-        },
-        {
-          id: 2,
-          senderId: 1,
-          content: "Yeah haha, your bio had me at 'hates small talk'",
-          sentAt: "10:44 AM",
-        },
-        {
-          id: 3,
-          senderId: 2,
-          content: "Finally someone who gets it 😂 So what do you actually do?",
-          sentAt: "10:45 AM",
-        },
-      ].forEach(renderMessage);
     </script>
   </body>
 </html>

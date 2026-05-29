@@ -98,10 +98,10 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
 
-// 1. COMMENT THESE OUT
-// const authRoutes = require('./routes/auth');
-// const paymentRoutes = require('./routes/payment');
-// const matchRoutes = require('./routes/matches');
+const authRoutes = require('./routes/auth');
+const paymentRoutes = require('./routes/payment');
+const matchRoutes = require('./routes/matches');
+const messageRoutes = require('./routes/message');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -111,10 +111,10 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
-// 2. COMMENT THESE OUT
-// app.use('/api/auth', authRoutes);
-// app.use('/payment', paymentRoutes);
-// app.use('/api/matches', matchRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/payment', paymentRoutes);
+app.use('/api/matches', matchRoutes);
+app.use('/api/messages', messageRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
