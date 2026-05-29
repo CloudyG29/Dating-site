@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  phone     String?  // locked until reveal
+  createdAt DateTime @default(now())
+
+  profile   Profile?
+  matchesA  Match[]  @relation("MatchUserA")
+  matchesB  Match[]  @relation("MatchUserB")
+}
+
+model Profile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  displayAlias  String   @unique
+  bio           String?
+  isActive      Boolean  @default(true)
+
+  values        String[] // e.g. ["Honesty", "Family"]
+  goals         String[] // e.g. ["Marriage", "Long-term"]
+  lifestyleTags String[] // e.g. ["Bookworm", "Night owl"]
+  dealbreakers  String[] // e.g. ["Smoker", "No kids"]
+
+  createdAt     DateTime @default(now())
+}
+
+model Match {
+  id                 String      @id @default(cuid())
+  userAId            String
+  userBId            String
+  userA              User        @relation("MatchUserA", fields: [userAId], references: [id])
+  userB              User        @relation("MatchUserB", fields: [userBId], references: [id])
+
+  compatibilityScore Float
+  status             MatchStatus @default(PENDING_REVIEW)
+  userAConsent       ConsentStatus @default(PENDING)
+  userBConsent       ConsentStatus @default(PENDING)
+  revealedAt         DateTime?
+
+  createdAt          DateTime @default(now())
+
+  @@unique([userAId, userBId])
+}
+
+enum MatchStatus {
+  PENDING_REVIEW
+  AWAITING_CONSENT
+  REVEALED
+  REJECTED
+  EXPIRED
+}
+
+enum ConsentStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
