@@ -3,18 +3,18 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlserver"
 }
 
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
-  phone     String?  // locked until reveal
+  phone     String?
   createdAt DateTime @default(now())
 
-  profile   Profile?
-  matchesA  Match[]  @relation("MatchUserA")
-  matchesB  Match[]  @relation("MatchUserB")
+  profile  Profile?
+  matchesA Match[]  @relation("MatchUserA")
+  matchesB Match[]  @relation("MatchUserB")
 }
 
 model Profile {
@@ -26,42 +26,30 @@ model Profile {
   bio           String?
   isActive      Boolean  @default(true)
 
-  values        String[] // e.g. ["Honesty", "Family"]
-  goals         String[] // e.g. ["Marriage", "Long-term"]
-  lifestyleTags String[] // e.g. ["Bookworm", "Night owl"]
-  dealbreakers  String[] // e.g. ["Smoker", "No kids"]
+  values        String?  // "Honesty,Family,Adventure"
+  goals         String?  // "Marriage,Long-term"
+  lifestyleTags String?  // "Bookworm,Night owl"
+  dealbreakers  String?  // "Smoker,No kids"
 
   createdAt     DateTime @default(now())
 }
 
 model Match {
-  id                 String      @id @default(cuid())
+  id                 String   @id @default(cuid())
   userAId            String
   userBId            String
-  userA              User        @relation("MatchUserA", fields: [userAId], references: [id])
-  userB              User        @relation("MatchUserB", fields: [userBId], references: [id])
+  userA              User     @relation("MatchUserA", fields: [userAId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  userB              User     @relation("MatchUserB", fields: [userBId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   compatibilityScore Float
-  status             MatchStatus @default(PENDING_REVIEW)
-  userAConsent       ConsentStatus @default(PENDING)
-  userBConsent       ConsentStatus @default(PENDING)
+  // PENDING_REVIEW | AWAITING_CONSENT | REVEALED | REJECTED | EXPIRED
+  status             String   @default("PENDING_REVIEW")
+  // PENDING | ACCEPTED | DECLINED
+  userAConsent       String   @default("PENDING")
+  userBConsent       String   @default("PENDING")
   revealedAt         DateTime?
 
   createdAt          DateTime @default(now())
 
   @@unique([userAId, userBId])
-}
-
-enum MatchStatus {
-  PENDING_REVIEW
-  AWAITING_CONSENT
-  REVEALED
-  REJECTED
-  EXPIRED
-}
-
-enum ConsentStatus {
-  PENDING
-  ACCEPTED
-  DECLINED
 }

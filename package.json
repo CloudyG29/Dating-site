@@ -20,6 +20,8 @@
   },
   "homepage": "https://github.com/CloudyG29/Dating-site#readme",
   "dependencies": {
+    "@prisma/adapter-mssql": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "cors": "^2.8.6",
     "crypto": "^1.0.1",
     "dotenv": "^17.4.2",
@@ -29,9 +31,12 @@
     "firebase-admin": "^13.10.0",
     "helmet": "^8.2.0",
     "morgan": "^1.10.1",
-    "nodemailer": "^8.0.9"
+    "nodemailer": "^8.0.9",
+    "prisma": "^7.8.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
   }
 }
