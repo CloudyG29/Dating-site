@@ -33,6 +33,15 @@ model Profile {
 
   createdAt     DateTime @default(now())
 }
+model Message {
+  id        Int      @id @default(autoincrement())
+  match     Request  @relation(fields: [matchId], references: [id])
+  matchId   Int      // links to the accepted request
+  sender    User     @relation(fields: [senderId], references: [id])
+  senderId  Int      // who sent it
+  content   String   // the actual message text
+  sentAt    DateTime @default(now())
+}
 
 model Match {
   id                 String      @id @default(cuid())
