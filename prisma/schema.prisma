@@ -7,85 +7,41 @@ datasource db {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  firebaseUid String   @unique
-  email       String   @unique
-  phone       String?
-  createdAt   DateTime @default(now())
-
-  profile     Profile?
-  matchesA    Match[]   @relation("MatchUserA")
-  matchesB    Match[]   @relation("MatchUserB")
-  messages    Message[]
+  id        String   @id @default(cuid())
+  email     String   @unique
+  phone     String?
+  createdAt DateTime @default(now())
+  matchesA  Match[]  @relation("MatchUserA")
+  matchesB  Match[]  @relation("MatchUserB")
+  profile   Profile?
 }
 
 model Profile {
-  id           String   @id @default(cuid())
-  userId       String   @unique
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  displayAlias String   @unique
-  bio          String?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-
-  values        ProfileValue[]
-  goals         ProfileGoal[]
-  lifestyleTags ProfileLifestyleTag[]
-  dealbreakers  ProfileDealbreaker[]
-}
-
-model ProfileValue {
-  id        Int     @id @default(autoincrement())
-  profileId String
-  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  value     String
-}
-
-model ProfileGoal {
-  id        Int     @id @default(autoincrement())
-  profileId String
-  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  goal      String
-}
-
-model ProfileLifestyleTag {
-  id        Int     @id @default(autoincrement())
-  profileId String
-  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tag       String
-}
-
-model ProfileDealbreaker {
-  id          Int     @id @default(autoincrement())
-  profileId   String
-  profile     Profile @relation(fields: [profileId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  dealbreaker String
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  displayAlias  String   @unique
+  bio           String?
+  isActive      Boolean  @default(true)
+  values        String?
+  goals         String?
+  lifestyleTags String?
+  dealbreakers  String?
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Match {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   userAId            String
   userBId            String
-  userA              User     @relation("MatchUserA", fields: [userAId], references: [id], onUpdate: NoAction)
-  userB              User     @relation("MatchUserB", fields: [userBId], references: [id], onUpdate: NoAction)
   compatibilityScore Float
-  status             String   @default("PENDING_REVIEW")
-  userAConsent       String   @default("PENDING")
-  userBConsent       String   @default("PENDING")
+  status             String    @default("PENDING_REVIEW")
+  userAConsent       String    @default("PENDING")
+  userBConsent       String    @default("PENDING")
   revealedAt         DateTime?
-  createdAt          DateTime @default(now())
-
-  messages           Message[]
+  createdAt          DateTime  @default(now())
+  userA              User      @relation("MatchUserA", fields: [userAId], references: [id], onUpdate: NoAction)
+  userB              User      @relation("MatchUserB", fields: [userBId], references: [id], onUpdate: NoAction)
 
   @@unique([userAId, userBId])
-}
-
-model Message {
-  id        String   @id @default(cuid())
-  match     Match    @relation(fields: [matchId], references: [id], onUpdate: NoAction)
-  matchId   String
-  sender    User     @relation(fields: [senderId], references: [id], onUpdate: NoAction)
-  senderId  String
-  content   String
-  sentAt    DateTime @default(now())
 }
