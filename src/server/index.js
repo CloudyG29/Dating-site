@@ -10,17 +10,18 @@ const authRoutes = require("./routes/auth");
 const profileRoutes = require("./routes/profile");
 const paymentRoutes = require("./routes/payment");
 const matchRoutes = require("./routes/matches");
+const messageRoutes = require("./routes/messages");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ─── Security middleware ───────────────────────────────────
 app.set("trust proxy", 1);
-
-app.use("/api/auth", authRoutes);
-app.use("/payment", paymentRoutes);
-app.use("/api/matches", matchRoutes);
-app.use("/api/messages", messageRoutes);
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Disabled so frontend can load external fonts/scripts
+  }),
+);
 
 app.use(
   cors({
@@ -65,6 +66,7 @@ if (process.env.NODE_ENV !== "production") {
 app.use("/api/auth/profile", profileRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/payment", paymentRoutes);
+app.use("/api/messages", messageRoutes);
 app.use("/api/matches", matchRoutes);
 
 // ─── Health check ─────────────────────────────────────────
@@ -76,9 +78,9 @@ app.get("/health", (req, res) =>
 // In development Firebase Hosting serves the frontend.
 // In production (if hosting both on same server) serve from /public
 if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "../public")));
+  app.use(express.static(path.join(__dirname, "../../src/client")));
   app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "../public/index.html"));
+    res.sendFile(path.join(__dirname, "../../src/client/index.html"));
   });
 }
 
