@@ -1,29 +1,27 @@
 const express = require("express");
 const router = express.Router();
-const { PrismaClient } = require("@prisma/client");
+const prisma = require("../lib/prisma");
 const { requireAuth } = require("../middleware/auth");
-
-const prisma = new PrismaClient();
 
 // GET /api/messages/:matchId
 router.get("/:matchId", requireAuth, async (req, res) => {
-  const matchId = parseInt(req.params.matchId);
+  const { matchId } = req.params;
 
   try {
-    const match = await prisma.request.findFirst({
+    const user = await prisma.user.findUnique({
+      where: { firebaseUid: req.uid },
+    });
+    if (!user) return res.status(401).json({ error: "User not found" });
+
+    const match = await prisma.match.findFirst({
       where: {
         id: matchId,
-        status: "accepted",
-        OR: [
-          { sender: { firebaseUid: req.uid } },
-          { receiver: { firebaseUid: req.uid } },
-        ],
+        status: "REVEALED",
+        OR: [{ userAId: user.id }, { userBId: user.id }],
       },
     });
 
-    if (!match) {
-      return res.status(403).json({ error: "Access denied" });
-    }
+    if (!match) return res.status(403).json({ error: "Access denied" });
 
     const messages = await prisma.message.findMany({
       where: { matchId },
@@ -31,18 +29,17 @@ router.get("/:matchId", requireAuth, async (req, res) => {
       include: { sender: { select: { firebaseUid: true } } },
     });
 
-    // Return senderUid so the frontend can compare against Firebase UID
-    const formatted = messages.map((m) => ({
-      id: m.id,
-      matchId: m.matchId,
-      senderUid: m.sender.firebaseUid,
-      content: m.content,
-      sentAt: m.sentAt,
-    }));
-
-    res.json(formatted);
+    res.json(
+      messages.map((m) => ({
+        id: m.id,
+        matchId: m.matchId,
+        senderUid: m.sender.firebaseUid,
+        content: m.content,
+        sentAt: m.sentAt,
+      })),
+    );
   } catch (err) {
-    console.error("Failed to load messages:", err);
+    console.error(err);
     res.status(500).json({ error: "Failed to load messages" });
   }
 });
@@ -56,34 +53,24 @@ router.post("/", requireAuth, async (req, res) => {
   }
 
   try {
-    const match = await prisma.request.findFirst({
-      where: {
-        id: parseInt(matchId),
-        status: "accepted",
-        OR: [
-          { sender: { firebaseUid: req.uid } },
-          { receiver: { firebaseUid: req.uid } },
-        ],
-      },
-    });
-
-    if (!match) {
-      return res
-        .status(403)
-        .json({ error: "Not matched or match not accepted" });
-    }
-
-    // Get the user's integer ID just for the foreign key
-    const user = await prisma.user.findFirst({
+    const user = await prisma.user.findUnique({
       where: { firebaseUid: req.uid },
     });
+    if (!user) return res.status(401).json({ error: "User not found" });
+
+    const match = await prisma.match.findFirst({
+      where: {
+        id: matchId,
+        status: "REVEALED",
+        OR: [{ userAId: user.id }, { userBId: user.id }],
+      },
+    });
+
+    if (!match)
+      return res.status(403).json({ error: "Not matched or not revealed yet" });
 
     const message = await prisma.message.create({
-      data: {
-        matchId: parseInt(matchId),
-        senderId: user.id,
-        content,
-      },
+      data: { matchId, senderId: user.id, content },
       include: { sender: { select: { firebaseUid: true } } },
     });
 
@@ -95,7 +82,7 @@ router.post("/", requireAuth, async (req, res) => {
       sentAt: message.sentAt,
     });
   } catch (err) {
-    console.error("Failed to save message:", err);
+    console.error(err);
     res.status(500).json({ error: "Failed to save message" });
   }
 });
