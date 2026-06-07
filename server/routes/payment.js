@@ -23,7 +23,7 @@ router.post('/initiate', async (req, res) => {
     email_address: email,
     m_payment_id: uid,          // your internal reference = Firebase UID
     amount: '29.00',
-    item_name: 'Soulthread Membership',
+    item_name: 'LinkUp Membership',
     custom_str1: uid,            // store UID to look up on webhook
   };
 

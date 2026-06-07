@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../prisma');
 const { requireAuth } = require('../middleware/auth');
+const { runMatchAlgorithm } = require('../services/matcher');
 
 // GET: Fetch the current user's profile
 router.get('/', requireAuth, async (req, res) => {
@@ -56,6 +57,7 @@ router.post('/', requireAuth, async (req, res) => {
             }
         });
 
+        runMatchAlgorithm(req.uid);
         res.json({ success: true, profile });
     } catch (err) {
         console.error(err);

@@ -84,7 +84,7 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n🌿 Soulthread server running on port ${PORT}`);
+  console.log(`\n🌿 LinkUp server running on port ${PORT}`);
   console.log(`   Environment: ${process.env.NODE_ENV}`);
   console.log(`   PayFast: ${process.env.PF_SANDBOX === 'true' ? 'SANDBOX' : 'LIVE'}\n`);
 });
