@@ -35,12 +35,16 @@ onAuthStateChanged(auth, async (user) => {
   if (user) {
     state.authToken = await getIdToken(user);
 
-    // Sync user to DB on every login (upsert so it's safe)
-    await fetch("/api/auth/sync", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${state.authToken}` },
-    });
+    // Only sync on pages that aren't mid-registration
+    // submitProfileToBackend handles sync itself during registration
+    if (!window.location.pathname.includes("register.html")) {
+      await fetch("/api/auth/sync", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${state.authToken}` },
+      });
+    }
 
+    if (window.location.pathname.includes("dashboard.html")) fetchDashboard();
     if (window.location.pathname.includes("profile.html")) fetchUserProfile();
     if (window.location.pathname.includes("preferences.html"))
       fetchUserPreferences();
@@ -56,6 +60,28 @@ onAuthStateChanged(auth, async (user) => {
     }
   }
 });
+
+async function fetchDashboard() {
+  try {
+    const res = await fetch("/api/auth/profile", {
+      headers: { Authorization: `Bearer ${state.authToken}` },
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+
+    const greeting = document.getElementById("dash-greeting");
+    if (greeting)
+      greeting.textContent = `Welcome back, ${data.displayAlias || "stranger"}.`;
+
+    const goalEl = document.querySelector(
+      ".snapshot-item:nth-child(2) .snapshot-value",
+    );
+    if (goalEl)
+      goalEl.textContent = data.goals ? JSON.parse(data.goals)[0] || "—" : "—";
+  } catch {
+    showNotif("Could not load dashboard.", "error");
+  }
+}
 
 // ─── Helpers ──────────────────────────────────────────────
 function showNotif(msg, type = "success") {
