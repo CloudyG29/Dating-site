@@ -63,25 +63,81 @@ onAuthStateChanged(auth, async (user) => {
 
 async function fetchDashboard() {
   try {
-    const res = await fetch("/api/auth/profile", {
-      headers: { Authorization: `Bearer ${state.authToken}` },
-    });
-    if (!res.ok) throw new Error();
-    const data = await res.json();
+    const [profileRes, matchRes] = await Promise.all([
+      fetch("/api/auth/profile", {
+        headers: { Authorization: `Bearer ${state.authToken}` },
+      }),
+      fetch("/api/matches", {
+        headers: { Authorization: `Bearer ${state.authToken}` },
+      }),
+    ]);
+
+    const profile = await profileRes.json();
+    const { matches } = await matchRes.json();
 
     const greeting = document.getElementById("dash-greeting");
-    if (greeting)
-      greeting.textContent = `Welcome back, ${data.displayAlias || "stranger"}.`;
+    if (greeting) {
+      greeting.textContent = `Welcome back, ${profile.displayAlias || "stranger"}.`;
+    }
 
-    const goalEl = document.querySelector(
-      ".snapshot-item:nth-child(2) .snapshot-value",
-    );
-    if (goalEl)
-      goalEl.textContent = data.goals ? JSON.parse(data.goals)[0] || "—" : "—";
-  } catch {
-    showNotif("Could not load dashboard.", "error");
+    const matchSection = document.getElementById("match-section");
+    if (!matchSection) return;
+
+    if (!matches || matches.length === 0) {
+      matchSection.innerHTML = `
+        <div class="pulse-icon" style="font-size:4rem;margin-bottom:1.5rem">✨</div>
+        <h2 style="font-family:var(--serif);font-size:2rem;margin-bottom:1rem;color:var(--ink)">Curating your match</h2>
+        <p style="color:var(--ink-3);line-height:1.7;max-width:450px;margin:0 auto 2.5rem;font-size:1.05rem">
+          Our algorithm is quietly exploring compatibility networks to find someone whose values, lifestyle, and intentions align deeply with yours.
+        </p>
+        <div style="background:var(--cream);padding:1.2rem;border-radius:var(--r);display:inline-block;margin:0 auto;border:1px solid var(--cream-2)">
+          <span style="font-size:0.9rem;color:var(--ink-2);font-weight:500">Estimated Time to Match: 1–3 days</span>
+        </div>`;
+    } else {
+      const m = matches[0]; // show best/latest match
+      matchSection.innerHTML = `
+        <div style="font-size:3rem;margin-bottom:1rem">💫</div>
+        <h2 style="font-family:var(--serif);font-size:2rem;margin-bottom:0.5rem;color:var(--ink)">Your match is ready</h2>
+        <p style="color:var(--gold-dark);font-weight:500;margin-bottom:1.5rem;font-size:1.1rem">${m.alias}</p>
+        <p style="color:var(--ink-3);line-height:1.7;max-width:450px;margin:0 auto 2rem;font-size:0.95rem">${m.bio || "This person prefers to let the conversation speak for itself."}</p>
+        <div style="background:var(--cream);padding:1rem 1.5rem;border-radius:var(--r);display:inline-block;border:1px solid var(--cream-2);margin-bottom:1.5rem">
+          <span style="font-size:0.85rem;color:var(--ink-2)">Compatibility Score: <strong>${Math.round(m.score)}%</strong></span>
+        </div>
+        <br>
+        ${
+          m.myConsent === "PENDING"
+            ? `
+          <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.5rem">
+            <button onclick="handleConsent('${m.matchId}','ACCEPTED')" class="btn btn-gold">Accept Match</button>
+            <button onclick="handleConsent('${m.matchId}','REJECTED')" class="btn btn-ghost">Pass</button>
+          </div>`
+            : `<p style="color:var(--ink-3);font-size:0.9rem">Waiting for their response...</p>`
+        }`;
+    }
+  } catch (err) {
+    console.error(err);
   }
 }
+
+async function handleConsent(matchId, decision) {
+  try {
+    await fetch(`/api/matches/${matchId}/consent`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${state.authToken}`,
+      },
+
+      
+      body: JSON.stringify({ decision }),
+    });
+    fetchDashboard(); // refresh
+  } catch (err) {
+    showNotif("Could not update decision.", "error");
+  }
+}
+
+window.handleConsent = handleConsent;
 
 // ─── Helpers ──────────────────────────────────────────────
 function showNotif(msg, type = "success") {
