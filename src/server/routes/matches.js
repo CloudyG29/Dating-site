@@ -1,95 +1,107 @@
+const express = require("express");
+const router = express.Router();
 const prisma = require("../lib/prisma");
+const { requireAuth } = require("../middleware/auth");
 
-// ─── Main Entry Point ─────────────────────────────────────
-async function triggerMatching(userId) {
-  const newUser = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { profile: true },
-  });
-
-  if (!newUser?.profile?.isActive) return; // no profile yet, bail
-
-  // Exclude users who already have a match with this user
-  const existingMatchIds = await prisma.match.findMany({
-    where: {
-      OR: [{ userAId: userId }, { userBId: userId }],
-    },
-    select: { userAId: true, userBId: true },
-  });
-
-  const alreadyMatchedIds = new Set(
-    existingMatchIds.flatMap((m) => [m.userAId, m.userBId]),
-  );
-  alreadyMatchedIds.add(userId); // exclude self
-
-  // Get all active candidates
-  const candidates = await prisma.user.findMany({
-    where: {
-      id: { notIn: [...alreadyMatchedIds] },
-      profile: { isActive: true },
-    },
-    include: { profile: true },
-  });
-
-  let bestMatch = null;
-  let bestScore = 0;
-
-  for (const candidate of candidates) {
-    const score = computeScore(newUser.profile, candidate.profile);
-    if (score > bestScore) {
-      bestScore = score;
-      bestMatch = candidate;
-    }
-  }
-
-  const MINIMUM_SCORE = 40;
-  if (!bestMatch || bestScore < MINIMUM_SCORE) return;
-
-  // Enforce consistent ordering to satisfy @@unique([userAId, userBId])
-  const [userAId, userBId] =
-    userId < bestMatch.id ? [userId, bestMatch.id] : [bestMatch.id, userId];
-
-  await prisma.match.create({
-    data: {
-      userAId,
-      userBId,
-      compatibilityScore: bestScore,
-      status: "PENDING_REVIEW",
-      userAConsent: "PENDING",
-      userBConsent: "PENDING",
-    },
-  });
-}
-
-// ─── Scoring ──────────────────────────────────────────────
-function parseField(jsonString) {
-  if (!jsonString) return [];
+// GET /api/matches
+router.get("/", requireAuth, async (req, res) => {
   try {
-    return JSON.parse(jsonString);
-  } catch {
-    return [];
+    const user = await prisma.user.findUnique({
+      where: { firebaseUid: req.uid },
+    });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const matches = await prisma.match.findMany({
+      where: {
+        OR: [{ userAId: user.id }, { userBId: user.id }],
+      },
+      include: {
+        userA: { include: { profile: true } },
+        userB: { include: { profile: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Return the match + the OTHER person's profile
+    const formatted = matches.map((match) => {
+      const isA = match.userAId === user.id;
+      const other = isA ? match.userB : match.userA;
+      const myConsent = isA ? match.userAConsent : match.userBConsent;
+      const theirConsent = isA ? match.userBConsent : match.userAConsent;
+
+      return {
+        matchId: match.id,
+        score: match.compatibilityScore,
+        status: match.status,
+        myConsent,
+        theirConsent,
+        createdAt: match.createdAt,
+        // Only reveal alias, nothing identifying yet
+        alias: other.profile?.displayAlias || "Anonymous",
+        bio: other.profile?.bio || null,
+        sharedGoals: match.compatibilityScore >= 70, // tease high compatibility
+      };
+    });
+
+    res.json({ matches: formatted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch matches" });
   }
-}
+});
 
-function computeScore(profileA, profileB) {
-  let score = 0;
+// PATCH /api/matches/:matchId/consent
+router.patch("/:matchId/consent", requireAuth, async (req, res) => {
+  try {
+    const { decision } = req.body; // "ACCEPTED" or "REJECTED"
+    if (!["ACCEPTED", "REJECTED"].includes(decision)) {
+      return res.status(400).json({ error: "Invalid decision" });
+    }
 
-  const valuesA = parseField(profileA.values);
-  const valuesB = parseField(profileB.values);
-  const sharedValues = valuesA.filter((v) => valuesB.includes(v));
-  score += sharedValues.length * 20;
+    const user = await prisma.user.findUnique({
+      where: { firebaseUid: req.uid },
+    });
 
-  const lifestyleA = parseField(profileA.lifestyleTags);
-  const lifestyleB = parseField(profileB.lifestyleTags);
-  const sharedLifestyle = lifestyleA.filter((l) => lifestyleB.includes(l));
-  score += sharedLifestyle.length * 15;
+    const match = await prisma.match.findUnique({
+      where: { id: req.params.matchId },
+    });
 
-  const goalsA = parseField(profileA.goals);
-  const goalsB = parseField(profileB.goals);
-  const sharedGoals = goalsA.filter((g) => goalsB.includes(g));
-  if (sharedGoals.length > 0) score += 30;
+    if (!match) return res.status(404).json({ error: "Match not found" });
 
-  return Math.min(100, score);
-}
+    const isA = match.userAId === user.id;
+    if (!isA && match.userBId !== user.id) {
+      return res.status(403).json({ error: "Not your match" });
+    }
 
-module.exports = { triggerMatching };
+    const updateData = isA
+      ? { userAConsent: decision }
+      : { userBConsent: decision };
+
+    // Check if both accepted after this update
+    const updatedMatch = await prisma.match.update({
+      where: { id: match.id },
+      data: {
+        ...updateData,
+        ...(decision === "REJECTED" && { status: "REJECTED" }),
+      },
+    });
+
+    const bothAccepted =
+      updatedMatch.userAConsent === "ACCEPTED" &&
+      updatedMatch.userBConsent === "ACCEPTED";
+
+    if (bothAccepted) {
+      await prisma.match.update({
+        where: { id: match.id },
+        data: { status: "REVEALED", revealedAt: new Date() },
+      });
+    }
+
+    res.json({ success: true, status: updatedMatch.status });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update consent" });
+  }
+});
+
+module.exports = router;
