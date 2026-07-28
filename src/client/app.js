@@ -69,7 +69,11 @@ onAuthStateChanged(auth, async (user) => {
       fetchUserPreferences();
   } else {
     state.authToken = null;
-    const protectedPages = ["dashboard.html", "profile.html", "preferences.html"];
+    const protectedPages = [
+      "dashboard.html",
+      "profile.html",
+      "preferences.html",
+    ];
     if (protectedPages.some((p) => window.location.pathname.includes(p))) {
       window.location.href = "login.html";
     }
@@ -227,9 +231,7 @@ async function regStep1() {
       headers: { Authorization: `Bearer ${state.authToken}` },
     });
     state.user.email = email;
-    state.user.displayAlias = document
-      .getElementById("r-username")
-      .value.trim();
+
     state.user.phone = document.getElementById("r-phone").value.trim();
     state.authToken = await getIdToken(userCredential.user);
     showRegStep(2);
@@ -252,6 +254,7 @@ async function regStep1() {
 
 function regStep2() {
   state.user.bio = document.getElementById("r-bio").value.trim();
+  state.user.displayAlias = document.getElementById("r-username").value.trim();
   state.user.values = state.tagSelections.values || [];
   state.user.lifestyleTags = state.tagSelections.lifestyle || [];
   state.user.goals = state.tagSelections.goal || [];
