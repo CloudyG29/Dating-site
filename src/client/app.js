@@ -35,13 +35,32 @@ onAuthStateChanged(auth, async (user) => {
   if (user) {
     state.authToken = await getIdToken(user);
 
-    // Only sync on pages that aren't mid-registration
-    // submitProfileToBackend handles sync itself during registration
-    if (!window.location.pathname.includes("register.html")) {
+    const onRegisterPage = window.location.pathname.includes("register.html");
+
+    if (!onRegisterPage) {
       await fetch("/api/auth/sync", {
         method: "POST",
         headers: { Authorization: `Bearer ${state.authToken}` },
       });
+    }
+
+    const profileRes = await fetch("/api/auth/profile", {
+      headers: { Authorization: `Bearer ${state.authToken}` },
+    });
+
+    if (onRegisterPage) {
+      if (profileRes.status === 404) {
+        state.user.email = user.email;
+        showRegStep(2);
+      } else {
+        window.location.href = "dashboard.html";
+      }
+      return;
+    }
+
+    if (profileRes.status === 404) {
+      window.location.href = "register.html";
+      return;
     }
 
     if (window.location.pathname.includes("dashboard.html")) fetchDashboard();
@@ -50,11 +69,7 @@ onAuthStateChanged(auth, async (user) => {
       fetchUserPreferences();
   } else {
     state.authToken = null;
-    const protectedPages = [
-      "dashboard.html",
-      "profile.html",
-      "preferences.html",
-    ];
+    const protectedPages = ["dashboard.html", "profile.html", "preferences.html"];
     if (protectedPages.some((p) => window.location.pathname.includes(p))) {
       window.location.href = "login.html";
     }
