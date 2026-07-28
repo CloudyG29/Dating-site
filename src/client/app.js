@@ -128,7 +128,6 @@ async function handleConsent(matchId, decision) {
         Authorization: `Bearer ${state.authToken}`,
       },
 
-      
       body: JSON.stringify({ decision }),
     });
     fetchDashboard(); // refresh
@@ -186,12 +185,54 @@ function showRegStep(n) {
 }
 
 // ─── Registration ─────────────────────────────────────────
-function regStep1() {
-  state.user.displayAlias = document.getElementById("r-username").value.trim();
-  state.user.email = document.getElementById("r-email").value.trim();
-  state.user.phone = document.getElementById("r-phone").value.trim();
-  state.user.password = document.getElementById("r-password").value;
-  showRegStep(2);
+async function regStep1() {
+  const email = document.getElementById("r-email").value.trim();
+  const password = document.getElementById("r-password").value;
+  const continue_btn = document.getElementById("reg-step1-btn");
+
+  if (password.length < 8) {
+    showNotif("Password must be at least 8 characters.", "error");
+    return;
+  }
+
+  continue_btn.disabled = true;
+  continue_btn.innerText = "Checking...";
+
+  try {
+    const userCredential = await createUserWithEmailAndPassword(
+      //creates a user in firebase auth and returns a userCredential object.
+      auth,
+      email,
+      password,
+    );
+    state.authToken = await getIdToken(userCredential.user);
+    await fetch("/api/auth/sync", {
+      //syncs the user with the backend database, immidiately after creating the user in firebase auth.
+      method: "POST",
+      headers: { Authorization: `Bearer ${state.authToken}` },
+    });
+    state.user.email = email;
+    state.user.displayAlias = document
+      .getElementById("r-username")
+      .value.trim();
+    state.user.phone = document.getElementById("r-phone").value.trim();
+    state.authToken = await getIdToken(userCredential.user);
+    showRegStep(2);
+  } catch (err) {
+    if (err.code === "auth/email-already-in-use") {
+      showNotif("That email is already registered.", "error");
+    } else if (err.code === "auth/weak-password") {
+      showNotif("Password is too weak.", "error");
+    } else if (err.code === "auth/invalid-email") {
+      showNotif("Enter a valid email address.", "error");
+    } else {
+      showNotif("Could not create account. Try again.", "error");
+    }
+  } finally {
+    //if there is an error , user remains on the same step and the continue button is re-enabled for retrying.
+    continue_btn.disabled = false;
+    continue_btn.innerText = "Continue";
+  }
 }
 
 function regStep2() {
@@ -204,28 +245,12 @@ function regStep2() {
 
 async function submitProfileToBackend() {
   state.user.dealbreakers = [];
-
   try {
-    // 1. Create Firebase user
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      state.user.email,
-      state.user.password,
-    );
-    const token = await getIdToken(userCredential.user);
-
-    // 2. Sync to DB
-    await fetch("/api/auth/sync", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    // 3. Save profile
     const res = await fetch("/api/auth/profile", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${state.authToken}`,
       },
       body: JSON.stringify({
         phone: state.user.phone,
@@ -237,14 +262,12 @@ async function submitProfileToBackend() {
         dealbreakers: state.user.dealbreakers,
       }),
     });
-
     if (!res.ok) throw new Error("Failed to save profile");
     window.location.href = "dashboard.html";
   } catch (err) {
     showNotif(err.message, "error");
   }
 }
-
 // ─── Login ────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
   const loginForm = document.getElementById("login-form");

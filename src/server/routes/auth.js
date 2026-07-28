@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../lib/prisma");
-const { requireAuth } = require("../middleware/auth");
+const { requireAuth } = require("../middleware/fire_auth");
 const { triggerMatching } = require("../services/matching");
 
 // POST /api/auth/sync
@@ -10,10 +10,12 @@ router.post("/sync", requireAuth, async (req, res) => {
     let user;
     try {
       user = await prisma.user.create({
+        //try to create a new user in the database with the provided firebaseUid and email from the request object. If the user already exists, it will throw an error.
         data: { firebaseUid: req.uid, email: req.email },
       });
     } catch (err) {
       if (err.code === "P2002") {
+        // Could not create user, user already exists
         user = await prisma.user.findUnique({
           where: { firebaseUid: req.uid },
         });
@@ -37,6 +39,7 @@ router.post("/profile", requireAuth, async (req, res) => {
     if (!user) return res.status(404).json({ error: "User not found" });
 
     const {
+      //pull the profile data from the request body.
       phone,
       displayAlias,
       bio,
@@ -51,26 +54,36 @@ router.post("/profile", requireAuth, async (req, res) => {
       data: { phone },
     });
 
-    await prisma.profile.upsert({
-      where: { userId: user.id },
-      update: {
-        displayAlias,
-        bio,
-        values: JSON.stringify(values || []),
-        goals: JSON.stringify(goals || []),
-        lifestyleTags: JSON.stringify(lifestyleTags || []),
-        dealbreakers: JSON.stringify(dealbreakers || []),
-      },
-      create: {
-        userId: user.id,
-        displayAlias,
-        bio,
-        values: JSON.stringify(values || []),
-        goals: JSON.stringify(goals || []),
-        lifestyleTags: JSON.stringify(lifestyleTags || []),
-        dealbreakers: JSON.stringify(dealbreakers || []),
-      },
-    });
+    let profile;
+    try {
+      profile = await prisma.profile.create({
+        data: {
+          userId: user.id,
+          displayAlias,
+          bio,
+          values: JSON.stringify(values || []),
+          goals: JSON.stringify(goals || []),
+          lifestyleTags: JSON.stringify(lifestyleTags || []),
+          dealbreakers: JSON.stringify(dealbreakers || []),
+        },
+      });
+    } catch (err) {
+      if (err.code === "P2002") {
+        profile = await prisma.profile.update({
+          where: { userId: user.id },
+          data: {
+            displayAlias,
+            bio,
+            values: JSON.stringify(values || []),
+            goals: JSON.stringify(goals || []),
+            lifestyleTags: JSON.stringify(lifestyleTags || []),
+            dealbreakers: JSON.stringify(dealbreakers || []),
+          },
+        });
+      } else {
+        throw err;
+      }
+    }
 
     // Fire matching after profile is complete — don't await it, don't block the response
     triggerMatching(user.id).catch((err) =>
@@ -92,6 +105,7 @@ router.get("/profile", requireAuth, async (req, res) => {
       include: { profile: true },
     });
     if (!user?.profile)
+      //
       return res.status(404).json({ error: "Profile not found" });
 
     res.json({ ...user.profile, email: user.email });
