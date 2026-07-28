@@ -26,6 +26,7 @@ model Profile {
   bio           String?
   isActive      Boolean @default(true)
   values        String?
+  age           Int?
   goals         String?
   lifestyleTags String?
   dealbreakers  String?

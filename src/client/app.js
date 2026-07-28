@@ -253,6 +253,7 @@ async function regStep1() {
 }
 
 function regStep2() {
+  state.user.age = parseInt(document.getElementById("r-age").value);
   state.user.bio = document.getElementById("r-bio").value.trim();
   state.user.displayAlias = document.getElementById("r-username").value.trim();
   state.user.values = state.tagSelections.values || [];
@@ -276,6 +277,7 @@ async function submitProfileToBackend() {
         bio: state.user.bio,
         values: state.user.values,
         goals: state.user.goals,
+        age: state.user.age,
         lifestyleTags: state.user.lifestyleTags,
         dealbreakers: state.user.dealbreakers,
       }),
