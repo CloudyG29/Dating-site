@@ -8,8 +8,8 @@ const path = require("path");
 
 const authRoutes = require("./routes/auth");
 const profileRoutes = require("./routes/profile");
-const matchRoutes = require("./routes/matches");
 const messageRoutes = require("./routes/messages");
+const matchRoutes = require("./routes/matches");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,6 +36,8 @@ const apiLimiter = rateLimit({
 });
 
 app.use("/api/", apiLimiter);
+// ─── API Routes ───────────────────────────────────────────
+app.use("/api/matches", matchRoutes);
 
 // ─── Body parsers ──────────────────────────────────────────
 app.use(express.json({ limit: "2mb" }));
@@ -51,7 +53,6 @@ if (process.env.NODE_ENV !== "production") {
 app.use("/api/auth/profile", profileRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
-app.use("/api/matches", matchRoutes);
 
 // ─── Health check ─────────────────────────────────────────
 app.get("/health", (req, res) =>

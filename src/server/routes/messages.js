@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../lib/prisma");
-const { requireAuth } = require("../middleware/auth");
+const { requireAuth } = require("../middleware/fire_auth");
 
 // GET /api/messages/:matchId
 router.get("/:matchId", requireAuth, async (req, res) => {

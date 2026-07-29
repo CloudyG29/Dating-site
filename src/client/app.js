@@ -35,12 +35,35 @@ onAuthStateChanged(auth, async (user) => {
   if (user) {
     state.authToken = await getIdToken(user);
 
-    // Sync user to DB on every login (upsert so it's safe)
-    await fetch("/api/auth/sync", {
-      method: "POST",
+    const onRegisterPage = window.location.pathname.includes("register.html");
+
+    if (!onRegisterPage) {
+      await fetch("/api/auth/sync", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${state.authToken}` },
+      });
+    }
+
+    const profileRes = await fetch("/api/auth/profile", {
       headers: { Authorization: `Bearer ${state.authToken}` },
     });
 
+    if (onRegisterPage) {
+      if (profileRes.status === 404) {
+        state.user.email = user.email;
+        showRegStep(2);
+      } else {
+        window.location.href = "dashboard.html";
+      }
+      return;
+    }
+
+    if (profileRes.status === 404) {
+      window.location.href = "register.html";
+      return;
+    }
+
+    if (window.location.pathname.includes("dashboard.html")) fetchDashboard();
     if (window.location.pathname.includes("profile.html")) fetchUserProfile();
     if (window.location.pathname.includes("preferences.html"))
       fetchUserPreferences();
@@ -56,6 +79,83 @@ onAuthStateChanged(auth, async (user) => {
     }
   }
 });
+
+async function fetchDashboard() {
+  try {
+    const [profileRes, matchRes] = await Promise.all([
+      fetch("/api/auth/profile", {
+        headers: { Authorization: `Bearer ${state.authToken}` },
+      }),
+      fetch("/api/matches", {
+        headers: { Authorization: `Bearer ${state.authToken}` },
+      }),
+    ]);
+
+    const profile = await profileRes.json();
+    const { matches } = await matchRes.json();
+
+    const greeting = document.getElementById("dash-greeting");
+    if (greeting) {
+      greeting.textContent = `Welcome back, ${profile.displayAlias || "stranger"}.`;
+    }
+
+    const matchSection = document.getElementById("match-section");
+    if (!matchSection) return;
+
+    if (!matches || matches.length === 0) {
+      matchSection.innerHTML = `
+        <div class="pulse-icon" style="font-size:4rem;margin-bottom:1.5rem">✨</div>
+        <h2 style="font-family:var(--serif);font-size:2rem;margin-bottom:1rem;color:var(--ink)">Curating your match</h2>
+        <p style="color:var(--ink-3);line-height:1.7;max-width:450px;margin:0 auto 2.5rem;font-size:1.05rem">
+          Our algorithm is quietly exploring compatibility networks to find someone whose values, lifestyle, and intentions align deeply with yours.
+        </p>
+        <div style="background:var(--cream);padding:1.2rem;border-radius:var(--r);display:inline-block;margin:0 auto;border:1px solid var(--cream-2)">
+          <span style="font-size:0.9rem;color:var(--ink-2);font-weight:500">Estimated Time to Match: 1–3 days</span>
+        </div>`;
+    } else {
+      const m = matches[0]; // show best/latest match
+      matchSection.innerHTML = `
+        <div style="font-size:3rem;margin-bottom:1rem">💫</div>
+        <h2 style="font-family:var(--serif);font-size:2rem;margin-bottom:0.5rem;color:var(--ink)">Your match is ready</h2>
+        <p style="color:var(--gold-dark);font-weight:500;margin-bottom:1.5rem;font-size:1.1rem">${m.alias}</p>
+        <p style="color:var(--ink-3);line-height:1.7;max-width:450px;margin:0 auto 2rem;font-size:0.95rem">${m.bio || "This person prefers to let the conversation speak for itself."}</p>
+        <div style="background:var(--cream);padding:1rem 1.5rem;border-radius:var(--r);display:inline-block;border:1px solid var(--cream-2);margin-bottom:1.5rem">
+          <span style="font-size:0.85rem;color:var(--ink-2)">Compatibility Score: <strong>${Math.round(m.score)}%</strong></span>
+        </div>
+        <br>
+        ${
+          m.myConsent === "PENDING"
+            ? `
+          <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.5rem">
+            <button onclick="handleConsent('${m.matchId}','ACCEPTED')" class="btn btn-gold">Accept Match</button>
+            <button onclick="handleConsent('${m.matchId}','REJECTED')" class="btn btn-ghost">Pass</button>
+          </div>`
+            : `<p style="color:var(--ink-3);font-size:0.9rem">Waiting for their response...</p>`
+        }`;
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function handleConsent(matchId, decision) {
+  try {
+    await fetch(`/api/matches/${matchId}/consent`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${state.authToken}`,
+      },
+
+      body: JSON.stringify({ decision }),
+    });
+    fetchDashboard(); // refresh
+  } catch (err) {
+    showNotif("Could not update decision.", "error");
+  }
+}
+
+window.handleConsent = handleConsent;
 
 // ─── Helpers ──────────────────────────────────────────────
 function showNotif(msg, type = "success") {
@@ -104,16 +204,58 @@ function showRegStep(n) {
 }
 
 // ─── Registration ─────────────────────────────────────────
-function regStep1() {
-  state.user.displayAlias = document.getElementById("r-username").value.trim();
-  state.user.email = document.getElementById("r-email").value.trim();
-  state.user.phone = document.getElementById("r-phone").value.trim();
-  state.user.password = document.getElementById("r-password").value;
-  showRegStep(2);
+async function regStep1() {
+  const email = document.getElementById("r-email").value.trim();
+  const password = document.getElementById("r-password").value;
+  const continue_btn = document.getElementById("reg-step1-btn");
+
+  if (password.length < 8) {
+    showNotif("Password must be at least 8 characters.", "error");
+    return;
+  }
+
+  continue_btn.disabled = true;
+  continue_btn.innerText = "Checking...";
+
+  try {
+    const userCredential = await createUserWithEmailAndPassword(
+      //creates a user in firebase auth and returns a userCredential object.
+      auth,
+      email,
+      password,
+    );
+    state.authToken = await getIdToken(userCredential.user);
+    await fetch("/api/auth/sync", {
+      //syncs the user with the backend database, immidiately after creating the user in firebase auth.
+      method: "POST",
+      headers: { Authorization: `Bearer ${state.authToken}` },
+    });
+    state.user.email = email;
+
+    state.user.phone = document.getElementById("r-phone").value.trim();
+    state.authToken = await getIdToken(userCredential.user);
+    showRegStep(2);
+  } catch (err) {
+    if (err.code === "auth/email-already-in-use") {
+      showNotif("That email is already registered.", "error");
+    } else if (err.code === "auth/weak-password") {
+      showNotif("Password is too weak.", "error");
+    } else if (err.code === "auth/invalid-email") {
+      showNotif("Enter a valid email address.", "error");
+    } else {
+      showNotif("Could not create account. Try again.", "error");
+    }
+  } finally {
+    //if there is an error , user remains on the same step and the continue button is re-enabled for retrying.
+    continue_btn.disabled = false;
+    continue_btn.innerText = "Continue";
+  }
 }
 
 function regStep2() {
+  state.user.age = parseInt(document.getElementById("r-age").value);
   state.user.bio = document.getElementById("r-bio").value.trim();
+  state.user.displayAlias = document.getElementById("r-username").value.trim();
   state.user.values = state.tagSelections.values || [];
   state.user.lifestyleTags = state.tagSelections.lifestyle || [];
   state.user.goals = state.tagSelections.goal || [];
@@ -122,28 +264,12 @@ function regStep2() {
 
 async function submitProfileToBackend() {
   state.user.dealbreakers = [];
-
   try {
-    // 1. Create Firebase user
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      state.user.email,
-      state.user.password,
-    );
-    const token = await getIdToken(userCredential.user);
-
-    // 2. Sync to DB
-    await fetch("/api/auth/sync", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    // 3. Save profile
     const res = await fetch("/api/auth/profile", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${state.authToken}`,
       },
       body: JSON.stringify({
         phone: state.user.phone,
@@ -151,18 +277,17 @@ async function submitProfileToBackend() {
         bio: state.user.bio,
         values: state.user.values,
         goals: state.user.goals,
+        age: state.user.age,
         lifestyleTags: state.user.lifestyleTags,
         dealbreakers: state.user.dealbreakers,
       }),
     });
-
     if (!res.ok) throw new Error("Failed to save profile");
     window.location.href = "dashboard.html";
   } catch (err) {
     showNotif(err.message, "error");
   }
 }
-
 // ─── Login ────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
   const loginForm = document.getElementById("login-form");
