@@ -5,19 +5,32 @@ async function triggerMatching(userId) {
   const newUser = await prisma.user.findUnique({
     where: { id: userId },
     include: { profile: true },
-  });
+  }); //gets user profile from database using the provided userId.
 
-  if (!newUser?.profile?.isActive) return; // no profile yet, bail
+  // 1. Make sure the user exists
+  if (!newUser) {
+    return;
+  }
+
+  // 2. Make sure they have a profile set up
+  if (!newUser.profile) {
+    return;
+  }
+
+  // 3. Make sure their profile is actually active
+  if (newUser.profile.isActive === false) {
+    return;
+  }
 
   // Exclude users who already have a match with this user
   const existingMatchIds = await prisma.match.findMany({
     where: {
-      OR: [{ userAId: userId }, { userBId: userId }],
+      OR: [{ userAId: userId }, { userBId: userId }], //match table is undirected, so we need to check both userAId and userBId for the given userId.
     },
-    select: { userAId: true, userBId: true },
+    select: { userAId: true, userBId: true }, //only gets the users and not other information.
   });
 
-  const alreadyMatchedIds = new Set(
+  const alreadyMatchedIds = new Set( //Don't recommend users who have already been matched with the current user.
     existingMatchIds.flatMap((m) => [m.userAId, m.userBId]),
   );
   alreadyMatchedIds.add(userId); // exclude self
@@ -45,9 +58,17 @@ async function triggerMatching(userId) {
   const MINIMUM_SCORE = 0;
   if (!bestMatch || bestScore < MINIMUM_SCORE) return;
 
-  // Enforce consistent ordering to satisfy @@unique([userAId, userBId])
-  const [userAId, userBId] =
-    userId < bestMatch.id ? [userId, bestMatch.id] : [bestMatch.id, userId];
+  let userAId;
+  let userBId;
+
+  // Always put the smaller ID in userAId to prevent duplicates in the database
+  if (userId < bestMatch.id) {
+    userAId = userId;
+    userBId = bestMatch.id;
+  } else {
+    userAId = bestMatch.id;
+    userBId = userId;
+  }
 
   await prisma.match.create({
     data: {
