@@ -23,12 +23,31 @@ router.get("/", requireAuth, async (req, res) => {
     });
 
     // Return the match + the OTHER person's profile
+    // Go through every match
     const formatted = matches.map((match) => {
-      const isA = match.userAId === user.id;
-      const other = isA ? match.userB : match.userA;
-      const myConsent = isA ? match.userAConsent : match.userBConsent;
-      const theirConsent = isA ? match.userBConsent : match.userAConsent;
+      let other;
+      let myConsent;
+      let theirConsent;
 
+      // Check whether current user is User a or User B in the match
+      if (match.userAId === user.id) {
+        other = match.userB;
+        myConsent = match.userAConsent;
+        theirConsent = match.userBConsent;
+      } else {
+        other = match.userA;
+        myConsent = match.userBConsent;
+        theirConsent = match.userAConsent;
+      }
+      let alias = "Anonymous";
+      let bio = null;
+
+      if (other.profile) {
+        alias = other.profile.displayAlias || "Anonymous";
+        bio = other.profile.bio;
+      }
+
+      // Building the response sent to the frontend, we don't wanna send too much information.
       return {
         matchId: match.id,
         score: match.compatibilityScore,
@@ -36,10 +55,11 @@ router.get("/", requireAuth, async (req, res) => {
         myConsent,
         theirConsent,
         createdAt: match.createdAt,
-        // Only reveal alias, nothing identifying yet
-        alias: other.profile?.displayAlias || "Anonymous",
-        bio: other.profile?.bio || null,
-        sharedGoals: match.compatibilityScore >= 70, // tease high compatibility
+        alias,
+        bio,
+
+        // If compatibility is high enough, hint that they have similar goals
+        sharedGoals: match.compatibilityScore >= 70,
       };
     });
 
@@ -68,14 +88,26 @@ router.patch("/:matchId/consent", requireAuth, async (req, res) => {
 
     if (!match) return res.status(404).json({ error: "Match not found" });
 
+    // Check whether the current user is userA in this match
     const isA = match.userAId === user.id;
+
+    // If the user isn't userA, make sure they're userB
     if (!isA && match.userBId !== user.id) {
       return res.status(403).json({ error: "Not your match" });
     }
 
-    const updateData = isA
-      ? { userAConsent: decision }
-      : { userBConsent: decision };
+    let updateData;
+
+    // Update the correct consent field depending on who made the decision
+    if (isA) {
+      updateData = {
+        userAConsent: decision,
+      };
+    } else {
+      updateData = {
+        userBConsent: decision,
+      };
+    }
 
     // Check if both accepted after this update
     const updatedMatch = await prisma.match.update({
