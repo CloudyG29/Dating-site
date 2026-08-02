@@ -69,7 +69,7 @@ async function triggerMatching(userId) {
   }
 
   const MINIMUM_SCORE = 0;
-  if (!bestMatch || bestScore < MINIMUM_SCORE) return "No suitable match found";
+  if (!bestMatch || bestScore < MINIMUM_SCORE) return null;
 
   let userAId;
   let userBId;

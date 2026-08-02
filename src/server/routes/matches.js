@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const prisma = require("../lib/prisma");
 const { requireAuth } = require("../middleware/fire_auth");
+const { triggerMatching } = require("../services/matching");
 
 // GET /api/matches
 router.get("/", requireAuth, async (req, res) => {
@@ -133,6 +134,35 @@ router.patch("/:matchId/consent", requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to update consent" });
+  }
+});
+router.post("/pass", requireAuth, async (req, res) => {
+  let user;
+  let result;
+  const { matchId } = req.body;
+  try {
+    user = await prisma.user.findUnique({
+      where: { firebaseUid: req.uid },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to find user" });
+  }
+  try {
+    await prisma.match.update({
+      where: { id: matchId },
+      data: { status: "REJECTED" },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to update match status" });
+  }
+  try {
+    result = await triggerMatching(user.id);
+    return res.json({ result });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to trigger matching" });
   }
 });
 
