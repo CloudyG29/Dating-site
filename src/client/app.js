@@ -123,6 +123,7 @@ async function fetchDashboard() {
     if (!matchSection) return;
 
     if (!matches || matches.length === 0) {
+      //if there are no matches, show a message indicating that the algorithm is curating a match for the user.
       matchSection.innerHTML = `
         <div class="pulse-icon" style="font-size:4rem;margin-bottom:1.5rem">✨</div>
         <h2 style="font-family:var(--serif);font-size:2rem;margin-bottom:1rem;color:var(--ink)">Curating your match</h2>
@@ -133,25 +134,7 @@ async function fetchDashboard() {
           <span style="font-size:0.9rem;color:var(--ink-2);font-weight:500">Estimated Time to Match: 1–3 days</span>
         </div>`;
     } else {
-      const m = matches[0]; // show best/latest match
-      matchSection.innerHTML = `
-        <div style="font-size:3rem;margin-bottom:1rem">💫</div>
-        <h2 style="font-family:var(--serif);font-size:2rem;margin-bottom:0.5rem;color:var(--ink)">Your match is ready</h2>
-        <p style="color:var(--gold-dark);font-weight:500;margin-bottom:1.5rem;font-size:1.1rem">${m.alias}</p>
-        <p style="color:var(--ink-3);line-height:1.7;max-width:450px;margin:0 auto 2rem;font-size:0.95rem">${m.bio || "This person prefers to let the conversation speak for itself."}</p>
-        <div style="background:var(--cream);padding:1rem 1.5rem;border-radius:var(--r);display:inline-block;border:1px solid var(--cream-2);margin-bottom:1.5rem">
-          <span style="font-size:0.85rem;color:var(--ink-2)">Compatibility Score: <strong>${Math.round(m.score)}%</strong></span>
-        </div>
-        <br>
-        ${
-          m.myConsent === "PENDING"
-            ? `
-          <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.5rem">
-            <button onclick="handleConsent('${m.matchId}','ACCEPTED')" class="btn btn-gold">Accept Match</button>
-            <button onclick="handleConsent('${m.matchId}','REJECTED')" class="btn btn-ghost">Pass</button>
-          </div>`
-            : `<p style="color:var(--ink-3);font-size:0.9rem">Waiting for their response...</p>`
-        }`;
+      matchSection.innerHTML = renderMatchCard(matches[0]); //render the match using helper function.
     }
   } catch (err) {
     console.error(err);
@@ -167,15 +150,30 @@ async function handlePass(matchId) {
       },
       body: JSON.stringify({ matchId }),
     });
-    const result = await res.json();
+    const data = await res.json();
     if (!res.ok) {
-      showNotif(result.error || "Failed to pass match");
+      showNotif(data.error || "Failed to pass match");
       return;
+    }
+    const matchSection = document.getElementById("match-section");
+    if (data.result) {
+      matchSection.innerHTML = renderMatchCard(data.result);
+    } else {
+      matchSection.innerHTML = `
+        <div class="pulse-icon" style="font-size:4rem;margin-bottom:1.5rem">✨</div>
+        <h2 style="font-family:var(--serif);font-size:2rem;margin-bottom:1rem;color:var(--ink)">Curating your match</h2>
+        <p style="color:var(--ink-3);line-height:1.7;max-width:450px;margin:0 auto 2.5rem;font-size:1.05rem">
+          Our algorithm is quietly exploring compatibility networks to find someone whose values, lifestyle, and intentions align deeply with yours.
+        </p>
+        <div style="background:var(--cream);padding:1.2rem;border-radius:var(--r);display:inline-block;margin:0 auto;border:1px solid var(--cream-2)">
+          <span style="font-size:0.9rem;color:var(--ink-2);font-weight:500">Estimated Time to Match: 1–3 days</span>
+        </div>`;
     }
   } catch (err) {
     console.error(err);
   }
 }
+window.handlePass = handlePass;
 
 async function handleConsent(matchId, decision) {
   try {

@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const prisma = require("../lib/prisma");
 const { requireAuth } = require("../middleware/fire_auth");
-const { triggerMatching } = require("../services/matching");
+const { triggerMatching, formatMatchForUser } = require("../services/matching");
 
 // GET /api/matches
 router.get("/", requireAuth, async (req, res) => {
@@ -25,44 +25,9 @@ router.get("/", requireAuth, async (req, res) => {
 
     // Return the match + the OTHER person's profile
     // Go through every match
-    const formatted = matches.map((match) => {
-      let other;
-      let myConsent;
-      let theirConsent;
-
-      // Check whether current user is User a or User B in the match
-      if (match.userAId === user.id) {
-        other = match.userB;
-        myConsent = match.userAConsent;
-        theirConsent = match.userBConsent;
-      } else {
-        other = match.userA;
-        myConsent = match.userBConsent;
-        theirConsent = match.userAConsent;
-      }
-      let alias = "Anonymous";
-      let bio = null;
-
-      if (other.profile) {
-        alias = other.profile.displayAlias || "Anonymous";
-        bio = other.profile.bio;
-      }
-
-      // Building the response sent to the frontend, we don't wanna send too much information.
-      return {
-        matchId: match.id,
-        score: match.compatibilityScore,
-        status: match.status,
-        Consent,
-        theirConsent,
-        createdAt: match.createdAt,
-        alias,
-        bio,
-
-        // If compatibility is high enough, hint that they have similar goals
-        sharedGoals: match.compatibilityScore >= 70,
-      };
-    });
+    const formatted = matches.map((match) =>
+      formatMatchForUser(match, user.id),
+    );
 
     res.json({ matches: formatted });
   } catch (err) {
