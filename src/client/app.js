@@ -79,6 +79,26 @@ onAuthStateChanged(auth, async (user) => {
     }
   }
 });
+function renderMatchCard(m) {
+  return `
+    <div style="font-size:3rem;margin-bottom:1rem">💫</div>
+    <h2 style="font-family:var(--serif);font-size:2rem;margin-bottom:0.5rem;color:var(--ink)">Your match is ready</h2>
+    <p style="color:var(--gold-dark);font-weight:500;margin-bottom:1.5rem;font-size:1.1rem">${m.alias}</p>
+    <p style="color:var(--ink-3);line-height:1.7;max-width:450px;margin:0 auto 2rem;font-size:0.95rem">${m.bio || "This person prefers to let the conversation speak for itself."}</p>
+    <div style="background:var(--cream);padding:1rem 1.5rem;border-radius:var(--r);display:inline-block;border:1px solid var(--cream-2);margin-bottom:1.5rem">
+      <span style="font-size:0.85rem;color:var(--ink-2)">Compatibility Score: <strong>${Math.round(m.score)}%</strong></span>
+    </div>
+    <br>
+    ${
+      m.myConsent === "PENDING"
+        ? `
+      <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.5rem">
+        <button onclick="handleConsent('${m.matchId}','ACCEPTED')" class="btn btn-gold">Accept Match</button>
+        <button onclick="handlePass('${m.matchId}')" class="btn btn-ghost">Pass</button>
+      </div>`
+        : `<p style="color:var(--ink-3);font-size:0.9rem">Waiting for their response...</p>`
+    }`;
+}
 
 async function fetchDashboard() {
   try {
@@ -132,6 +152,25 @@ async function fetchDashboard() {
           </div>`
             : `<p style="color:var(--ink-3);font-size:0.9rem">Waiting for their response...</p>`
         }`;
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+async function handlePass(matchId) {
+  try {
+    const res = await fetch(`/api/matches/pass`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${state.authToken}`,
+      },
+      body: JSON.stringify({ matchId }),
+    });
+    const result = await res.json();
+    if (!res.ok) {
+      showNotif(result.error || "Failed to pass match");
+      return;
     }
   } catch (err) {
     console.error(err);

@@ -7,6 +7,7 @@ function formatMatchForUser(match, userId) {
     matchId: match.id,
     score: match.compatibilityScore,
     status: match.status,
+    myconsent: isA ? match.userAConsent : match.userBConsent,
     alias: other.profile?.displayAlias || "Anonymous",
     bio: other.profile?.bio || null,
     sharedGoals: match.compatibilityScore >= 70,

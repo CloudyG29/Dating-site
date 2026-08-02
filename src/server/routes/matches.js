@@ -53,7 +53,7 @@ router.get("/", requireAuth, async (req, res) => {
         matchId: match.id,
         score: match.compatibilityScore,
         status: match.status,
-        myConsent,
+        Consent,
         theirConsent,
         createdAt: match.createdAt,
         alias,
