@@ -22,17 +22,17 @@ async function triggerMatching(userId) {
 
   // 1. Make sure the user exists
   if (!newUser) {
-    return;
+    throw new Error("User not found");
   }
 
   // 2. Make sure they have a profile set up
   if (!newUser.profile) {
-    return;
+    throw new Error("User profile not found");
   }
 
   // 3. Make sure their profile is actually active
   if (newUser.profile.isActive === false) {
-    return;
+    throw new Error("User profile is not active");
   }
 
   // Exclude users who already have a match with this user
@@ -69,7 +69,7 @@ async function triggerMatching(userId) {
   }
 
   const MINIMUM_SCORE = 0;
-  if (!bestMatch || bestScore < MINIMUM_SCORE) return;
+  if (!bestMatch || bestScore < MINIMUM_SCORE) return "No suitable match found";
 
   let userAId;
   let userBId;
