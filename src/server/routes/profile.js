@@ -93,5 +93,10 @@ router.post("/", requireAuth, async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Failed to save profile" });
   }
+  try {
+    await triggerMatching(user.id);
+  } catch (err) {
+    console.error("triggerMatching failed on profile create:", err);
+  }
 });
 module.exports = router;
