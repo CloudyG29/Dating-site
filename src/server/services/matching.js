@@ -1,5 +1,18 @@
 const prisma = require("../lib/prisma");
 
+function formatMatchForUser(match, userId) {
+  const isA = match.userAId === userId;
+  const other = isA ? match.userB : match.userA;
+  return {
+    matchId: match.id,
+    score: match.compatibilityScore,
+    status: match.status,
+    alias: other.profile?.displayAlias || "Anonymous",
+    bio: other.profile?.bio || null,
+    sharedGoals: match.compatibilityScore >= 70,
+  };
+}
+
 // ─── Main Entry Point ─────────────────────────────────────
 async function triggerMatching(userId) {
   const newUser = await prisma.user.findUnique({
@@ -70,7 +83,7 @@ async function triggerMatching(userId) {
     userBId = userId;
   }
 
-  await prisma.match.create({
+  const newmatch = await prisma.match.create({
     data: {
       userAId,
       userBId,
@@ -79,7 +92,12 @@ async function triggerMatching(userId) {
       userAConsent: "PENDING",
       userBConsent: "PENDING",
     },
+    include: {
+      userA: { include: { profile: true } },
+      userB: { include: { profile: true } },
+    },
   });
+  return formatMatchForUser(newmatch, userId);
 }
 
 // ─── Scoring ──────────────────────────────────────────────
@@ -119,4 +137,4 @@ function computeScore(profileA, profileB) {
   return 100;
 }
 
-module.exports = { triggerMatching };
+module.exports = { triggerMatching, formatMatchForUser };
