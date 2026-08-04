@@ -90,7 +90,7 @@ function renderMatchCard(m) {
     </div>
     <br>
     ${
-      m.myConsent === "PENDING"
+      m.consent === "PENDING"
         ? `
       <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.5rem">
         <button onclick="handleConsent('${m.matchId}','ACCEPTED')" class="btn btn-gold">Accept Match</button>
