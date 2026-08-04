@@ -1,4 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js";
 import {
   getAuth,
@@ -476,6 +477,16 @@ document.addEventListener("DOMContentLoaded", () => {
       } finally {
         btn.innerText = "Update Algorithm";
       }
+    });
+  }
+});
+document.addEventListener("DOMContentLoaded", () => {
+  const signOutBtn = document.getElementById("sign-out-btn");
+  if (signOutBtn) {
+    signOutBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      await signOut(auth);
+      window.location.href = "index.html";
     });
   }
 });
