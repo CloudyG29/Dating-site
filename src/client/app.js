@@ -81,6 +81,20 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 function renderMatchCard(m) {
+  let actionSection;
+
+  if (m.status === "REVEALED") {
+    actionSection = `<p style="color:var(--ink-3);font-size:0.9rem">You matched! Messaging coming soon.</p>`;
+  } else if (m.consent === "PENDING") {
+    actionSection = `
+      <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.5rem">
+        <button onclick="handleConsent('${m.matchId}','ACCEPTED')" class="btn btn-gold">Accept Match</button>
+        <button onclick="handlePass('${m.matchId}')" class="btn btn-ghost">Pass</button>
+      </div>`;
+  } else {
+    actionSection = `<p style="color:var(--ink-3);font-size:0.9rem">Waiting for their response...</p>`;
+  }
+
   return `
     <div style="font-size:3rem;margin-bottom:1rem">💫</div>
     <h2 style="font-family:var(--serif);font-size:2rem;margin-bottom:0.5rem;color:var(--ink)">Your match is ready</h2>
@@ -90,15 +104,7 @@ function renderMatchCard(m) {
       <span style="font-size:0.85rem;color:var(--ink-2)">Compatibility Score: <strong>${Math.round(m.score)}%</strong></span>
     </div>
     <br>
-    ${
-      m.consent === "PENDING"
-        ? `
-      <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.5rem">
-        <button onclick="handleConsent('${m.matchId}','ACCEPTED')" class="btn btn-gold">Accept Match</button>
-        <button onclick="handlePass('${m.matchId}')" class="btn btn-ghost">Pass</button>
-      </div>`
-        : `<p style="color:var(--ink-3);font-size:0.9rem">Waiting for their response...</p>`
-    }`;
+    ${actionSection}`;
 }
 
 async function fetchDashboard() {
