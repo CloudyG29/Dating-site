@@ -33,7 +33,7 @@ let state = {
 // ─── Auth State ───────────────────────────────────────────
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    state.authToken = await getIdToken(user);
+    state.authToken = await getIdToken(user, true);
 
     const onRegisterPage = window.location.pathname.includes("register.html");
 
