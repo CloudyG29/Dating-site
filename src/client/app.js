@@ -109,6 +109,12 @@ function renderMatchCard(m) {
 
 async function fetchDashboard() {
   try {
+    const matchSection = document.getElementById("match-section");
+    if (!matchSection) return;
+
+    // show spinner while loading dashboard data
+    matchSection.innerHTML = `<div class="spinner" style="margin:1.5rem auto;display:block"></div>`;
+
     const [profileRes, matchRes] = await Promise.all([
       fetch("/api/auth/profile", {
         headers: { Authorization: `Bearer ${state.authToken}` },
@@ -125,9 +131,6 @@ async function fetchDashboard() {
     if (greeting) {
       greeting.textContent = `Welcome back, ${profile.displayAlias || "stranger"}.`;
     }
-
-    const matchSection = document.getElementById("match-section");
-    if (!matchSection) return;
 
     if (!matches || matches.length === 0) {
       //if there are no matches, show a message indicating that the algorithm is curating a match for the user.
@@ -149,6 +152,10 @@ async function fetchDashboard() {
 }
 async function handlePass(matchId) {
   try {
+    const matchSection = document.getElementById("match-section");
+    if (matchSection) {
+      matchSection.innerHTML = `<div class="spinner" style="margin:1.5rem auto;display:block"></div>`;
+    }
     const res = await fetch(`/api/matches/pass`, {
       method: "POST",
       headers: {
@@ -162,7 +169,7 @@ async function handlePass(matchId) {
       showNotif(data.error || "Failed to pass match");
       return;
     }
-    const matchSection = document.getElementById("match-section");
+    // reuse the previously-selected matchSection element
     if (data.result) {
       matchSection.innerHTML = renderMatchCard(data.result);
     } else {
