@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const prisma = require("../lib/prisma");
 const { requireAuth } = require("../middleware/fire_auth");
+const { triggerMatching, formatMatchForUser } = require("../services/matching");
 
 // GET /api/matches
 router.get("/", requireAuth, async (req, res) => {
@@ -23,25 +24,10 @@ router.get("/", requireAuth, async (req, res) => {
     });
 
     // Return the match + the OTHER person's profile
-    const formatted = matches.map((match) => {
-      const isA = match.userAId === user.id;
-      const other = isA ? match.userB : match.userA;
-      const myConsent = isA ? match.userAConsent : match.userBConsent;
-      const theirConsent = isA ? match.userBConsent : match.userAConsent;
-
-      return {
-        matchId: match.id,
-        score: match.compatibilityScore,
-        status: match.status,
-        myConsent,
-        theirConsent,
-        createdAt: match.createdAt,
-        // Only reveal alias, nothing identifying yet
-        alias: other.profile?.displayAlias || "Anonymous",
-        bio: other.profile?.bio || null,
-        sharedGoals: match.compatibilityScore >= 70, // tease high compatibility
-      };
-    });
+    // Go through every match
+    const formatted = matches.map((match) =>
+      formatMatchForUser(match, user.id),
+    );
 
     res.json({ matches: formatted });
   } catch (err) {
@@ -68,14 +54,26 @@ router.patch("/:matchId/consent", requireAuth, async (req, res) => {
 
     if (!match) return res.status(404).json({ error: "Match not found" });
 
+    // Check whether the current user is userA in this match
     const isA = match.userAId === user.id;
+
+    // If the user isn't userA, make sure they're userB
     if (!isA && match.userBId !== user.id) {
       return res.status(403).json({ error: "Not your match" });
     }
 
-    const updateData = isA
-      ? { userAConsent: decision }
-      : { userBConsent: decision };
+    let updateData;
+
+    // Update the correct consent field depending on who made the decision
+    if (isA) {
+      updateData = {
+        userAConsent: decision,
+      };
+    } else {
+      updateData = {
+        userBConsent: decision,
+      };
+    }
 
     // Check if both accepted after this update
     const updatedMatch = await prisma.match.update({
@@ -101,6 +99,35 @@ router.patch("/:matchId/consent", requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to update consent" });
+  }
+});
+router.post("/pass", requireAuth, async (req, res) => {
+  let user;
+  let result;
+  const { matchId } = req.body;
+  try {
+    user = await prisma.user.findUnique({
+      where: { firebaseUid: req.uid },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to find user" });
+  }
+  try {
+    await prisma.match.update({
+      where: { id: matchId },
+      data: { status: "REJECTED" },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to update match status" });
+  }
+  try {
+    result = await triggerMatching(user.id);
+    return res.json({ result });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to trigger matching" });
   }
 });
 

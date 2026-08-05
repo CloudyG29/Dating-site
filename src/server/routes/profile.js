@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const prisma = require("../lib/prisma");
 const { requireAuth } = require("../middleware/fire_auth");
+const { triggerMatching } = require("../services/matching");
 
 // GET own profile
 router.get("/", requireAuth, async (req, res) => {
@@ -41,10 +42,10 @@ router.post("/", requireAuth, async (req, res) => {
   if (!displayAlias || !bio) {
     return res.status(400).json({ error: "displayAlias and bio are required" });
   }
-
+  let user;
   try {
     // Find or create user
-    let user = await prisma.user.findUnique({
+    user = await prisma.user.findUnique({
       where: { firebaseUid: req.uid },
     });
     if (!user) {
@@ -92,6 +93,11 @@ router.post("/", requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to save profile" });
+  }
+  try {
+    await triggerMatching(user.id);
+  } catch (err) {
+    console.error("triggerMatching failed on profile create:", err);
   }
 });
 module.exports = router;

@@ -34,13 +34,12 @@ const apiLimiter = rateLimit({
   max: 100,
   message: { error: "Too many requests. Please try again in 15 minutes." },
 });
+// ─── Body parsers ──────────────────────────────────────────
+app.use(express.json({ limit: "2mb" }));
 
 app.use("/api/", apiLimiter);
 // ─── API Routes ───────────────────────────────────────────
 app.use("/api/matches", matchRoutes);
-
-// ─── Body parsers ──────────────────────────────────────────
-app.use(express.json({ limit: "2mb" }));
 
 // ─── Logging ──────────────────────────────────────────────
 if (process.env.NODE_ENV !== "production") {

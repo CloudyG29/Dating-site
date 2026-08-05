@@ -1,4 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js";
 import {
   getAuth,
@@ -33,7 +34,7 @@ let state = {
 // ─── Auth State ───────────────────────────────────────────
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    state.authToken = await getIdToken(user);
+    state.authToken = await getIdToken(user, true);
 
     const onRegisterPage = window.location.pathname.includes("register.html");
 
@@ -79,9 +80,41 @@ onAuthStateChanged(auth, async (user) => {
     }
   }
 });
+function renderMatchCard(m) {
+  let actionSection;
+
+  if (m.status === "REVEALED") {
+    actionSection = `<p style="color:var(--ink-3);font-size:0.9rem">You matched! Messaging coming soon.</p>`;
+  } else if (m.consent === "PENDING") {
+    actionSection = `
+      <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.5rem">
+        <button onclick="handleConsent('${m.matchId}','ACCEPTED')" class="btn btn-gold">Accept Match</button>
+        <button onclick="handlePass('${m.matchId}')" class="btn btn-ghost">Pass</button>
+      </div>`;
+  } else {
+    actionSection = `<p style="color:var(--ink-3);font-size:0.9rem">Waiting for their response...</p>`;
+  }
+
+  return `
+    <div style="font-size:3rem;margin-bottom:1rem">💫</div>
+    <h2 style="font-family:var(--serif);font-size:2rem;margin-bottom:0.5rem;color:var(--ink)">Your match is ready</h2>
+    <p style="color:var(--gold-dark);font-weight:500;margin-bottom:1.5rem;font-size:1.1rem">${m.alias}</p>
+    <p style="color:var(--ink-3);line-height:1.7;max-width:450px;margin:0 auto 2rem;font-size:0.95rem">${m.bio || "This person prefers to let the conversation speak for itself."}</p>
+    <div style="background:var(--cream);padding:1rem 1.5rem;border-radius:var(--r);display:inline-block;border:1px solid var(--cream-2);margin-bottom:1.5rem">
+      <span style="font-size:0.85rem;color:var(--ink-2)">Compatibility Score: <strong>${Math.round(m.score)}%</strong></span>
+    </div>
+    <br>
+    ${actionSection}`;
+}
 
 async function fetchDashboard() {
   try {
+    const matchSection = document.getElementById("match-section");
+    if (!matchSection) return;
+
+    // show spinner while loading dashboard data
+    matchSection.innerHTML = `<div class="spinner" style="margin:1.5rem auto;display:block"></div>`;
+
     const [profileRes, matchRes] = await Promise.all([
       fetch("/api/auth/profile", {
         headers: { Authorization: `Bearer ${state.authToken}` },
@@ -99,10 +132,8 @@ async function fetchDashboard() {
       greeting.textContent = `Welcome back, ${profile.displayAlias || "stranger"}.`;
     }
 
-    const matchSection = document.getElementById("match-section");
-    if (!matchSection) return;
-
     if (!matches || matches.length === 0) {
+      //if there are no matches, show a message indicating that the algorithm is curating a match for the user.
       matchSection.innerHTML = `
         <div class="pulse-icon" style="font-size:4rem;margin-bottom:1.5rem">✨</div>
         <h2 style="font-family:var(--serif);font-size:2rem;margin-bottom:1rem;color:var(--ink)">Curating your match</h2>
@@ -113,30 +144,50 @@ async function fetchDashboard() {
           <span style="font-size:0.9rem;color:var(--ink-2);font-weight:500">Estimated Time to Match: 1–3 days</span>
         </div>`;
     } else {
-      const m = matches[0]; // show best/latest match
-      matchSection.innerHTML = `
-        <div style="font-size:3rem;margin-bottom:1rem">💫</div>
-        <h2 style="font-family:var(--serif);font-size:2rem;margin-bottom:0.5rem;color:var(--ink)">Your match is ready</h2>
-        <p style="color:var(--gold-dark);font-weight:500;margin-bottom:1.5rem;font-size:1.1rem">${m.alias}</p>
-        <p style="color:var(--ink-3);line-height:1.7;max-width:450px;margin:0 auto 2rem;font-size:0.95rem">${m.bio || "This person prefers to let the conversation speak for itself."}</p>
-        <div style="background:var(--cream);padding:1rem 1.5rem;border-radius:var(--r);display:inline-block;border:1px solid var(--cream-2);margin-bottom:1.5rem">
-          <span style="font-size:0.85rem;color:var(--ink-2)">Compatibility Score: <strong>${Math.round(m.score)}%</strong></span>
-        </div>
-        <br>
-        ${
-          m.myConsent === "PENDING"
-            ? `
-          <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.5rem">
-            <button onclick="handleConsent('${m.matchId}','ACCEPTED')" class="btn btn-gold">Accept Match</button>
-            <button onclick="handleConsent('${m.matchId}','REJECTED')" class="btn btn-ghost">Pass</button>
-          </div>`
-            : `<p style="color:var(--ink-3);font-size:0.9rem">Waiting for their response...</p>`
-        }`;
+      matchSection.innerHTML = renderMatchCard(matches[0]); //render the match using helper function.
     }
   } catch (err) {
     console.error(err);
   }
 }
+async function handlePass(matchId) {
+  try {
+    const matchSection = document.getElementById("match-section");
+    if (matchSection) {
+      matchSection.innerHTML = `<div class="spinner" style="margin:1.5rem auto;display:block"></div>`;
+    }
+    const res = await fetch(`/api/matches/pass`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${state.authToken}`,
+      },
+      body: JSON.stringify({ matchId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showNotif(data.error || "Failed to pass match");
+      return;
+    }
+    // reuse the previously-selected matchSection element
+    if (data.result) {
+      matchSection.innerHTML = renderMatchCard(data.result);
+    } else {
+      matchSection.innerHTML = `
+        <div class="pulse-icon" style="font-size:4rem;margin-bottom:1.5rem">✨</div>
+        <h2 style="font-family:var(--serif);font-size:2rem;margin-bottom:1rem;color:var(--ink)">Curating your match</h2>
+        <p style="color:var(--ink-3);line-height:1.7;max-width:450px;margin:0 auto 2.5rem;font-size:1.05rem">
+          Our algorithm is quietly exploring compatibility networks to find someone whose values, lifestyle, and intentions align deeply with yours.
+        </p>
+        <div style="background:var(--cream);padding:1.2rem;border-radius:var(--r);display:inline-block;margin:0 auto;border:1px solid var(--cream-2)">
+          <span style="font-size:0.9rem;color:var(--ink-2);font-weight:500">Estimated Time to Match: 1–3 days</span>
+        </div>`;
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+window.handlePass = handlePass;
 
 async function handleConsent(matchId, decision) {
   try {
@@ -439,6 +490,16 @@ document.addEventListener("DOMContentLoaded", () => {
       } finally {
         btn.innerText = "Update Algorithm";
       }
+    });
+  }
+});
+document.addEventListener("DOMContentLoaded", () => {
+  const signOutBtn = document.getElementById("sign-out-btn");
+  if (signOutBtn) {
+    signOutBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      await signOut(auth);
+      window.location.href = "index.html";
     });
   }
 });
