@@ -66,6 +66,12 @@ onAuthStateChanged(auth, async (user) => {
     }
 
     if (window.location.pathname.includes("dashboard.html")) fetchDashboard();
+    if (window.location.pathname.includes("message.html")) {
+      const matchId = new URLSearchParams(window.location.search).get(
+        "matchId",
+      );
+      loadConversation(matchId);
+    }
     if (window.location.pathname.includes("profile.html")) fetchUserProfile();
     if (window.location.pathname.includes("preferences.html"))
       fetchUserPreferences();
@@ -208,6 +214,25 @@ function renderMessage(msg) {
     <div class="msg-time">${msg.sentAt}</div>
   `;
   document.getElementById("messages").appendChild(div);
+}
+async function loadConversation(matchId) {
+  document.getElementById("messages").innerHTML = ""; // clear previous messages
+  const messages = await fetchMessages(matchId);
+  for (const msg of messages) {
+    renderMessage(msg);
+  }
+}
+async function handleSendMessage() {
+  const matchId = new URLSearchParams(window.location.search).get("matchId");
+  const input = document.getElementById("msg-input");
+  const content = input.value.trim();
+  if (!content) return;
+
+  const message = await sendMessage(matchId, content);
+  if (message) {
+    renderMessage(message);
+    input.value = "";
+  }
 }
 
 async function handlePass(matchId) {
@@ -572,3 +597,4 @@ window.showRegStep = showRegStep;
 window.regStep1 = regStep1;
 window.regStep2 = regStep2;
 window.submitProfileToBackend = submitProfileToBackend;
+window.handleSendMessage = handleSendMessage;
