@@ -81,21 +81,6 @@
         });
       }
 
-      function renderMessage(msg) {
-        if (messageIds.has(msg.id)) return;
-        messageIds.add(msg.id);
-
-        const isMine = msg.senderUid === currentUid;
-        const div = document.createElement("div");
-        div.className = `msg ${isMine ? "mine" : "theirs"}`;
-        div.innerHTML = `
-      <div class="bubble">${msg.content}</div>
-      <div class="msg-time">${msg.sentAt}</div>
-    `;
-        messagesEl.appendChild(div);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-      }
-
       function getAuthHeaders() {
         return authToken ? { Authorization: `Bearer ${authToken}` } : {};
       }

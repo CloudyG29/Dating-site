@@ -35,6 +35,7 @@ let state = {
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     state.authToken = await getIdToken(user, true);
+    state.uid = user.uid;
 
     const onRegisterPage = window.location.pathname.includes("register.html");
 
@@ -150,6 +151,8 @@ async function fetchDashboard() {
     console.error(err);
   }
 }
+
+// ─── Messaging / Conversations ─────────────────────────────
 async function fetchMessages(matchId) {
   try {
     const res = await fetch(`/api/messages/${matchId}`, {
@@ -177,6 +180,36 @@ async function fetchConversations() {
     return [];
   }
 }
+async function sendMessage(matchId, content) {
+  try {
+    const res = await fetch(`/api/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${state.authToken}`,
+      },
+      body: JSON.stringify({ matchId, content }),
+    });
+    if (!res.ok) throw new Error("Failed to send message");
+    const message = await res.json();
+    return message;
+  } catch (err) {
+    console.error(err);
+    showNotif("Failed to send message.", "error");
+    return null;
+  }
+}
+function renderMessage(msg) {
+  const isMine = msg.senderUid === state.uid;
+  const div = document.createElement("div");
+  div.className = `msg ${isMine ? "mine" : "theirs"}`;
+  div.innerHTML = `
+    <div class="bubble">${msg.content}</div>
+    <div class="msg-time">${msg.sentAt}</div>
+  `;
+  document.getElementById("messages").appendChild(div);
+}
+
 async function handlePass(matchId) {
   try {
     const matchSection = document.getElementById("match-section");
