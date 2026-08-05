@@ -163,6 +163,20 @@ async function fetchMessages(matchId) {
     return [];
   }
 }
+
+async function fetchConversations() {
+  try {
+    const res = await fetch(`/api/matches`, {
+      headers: { Authorization: `Bearer ${state.authToken}` },
+    });
+    if (!res.ok) throw new Error("Failed to fetch matches");
+    const { matches } = await res.json();
+    return matches.filter((m) => m.status === "REVEALED");
+  } catch (err) {
+    console.error(err);
+    return [];
+  }
+}
 async function handlePass(matchId) {
   try {
     const matchSection = document.getElementById("match-section");
