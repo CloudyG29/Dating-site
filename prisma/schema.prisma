@@ -59,7 +59,9 @@ model Message {
   senderId String
   content  String
   sentAt   DateTime @default(now())
+  readAt   DateTime?
 
   match  Match @relation(fields: [matchId], references: [id], onUpdate: NoAction)
   sender User  @relation(fields: [senderId], references: [id], onUpdate: NoAction)
+  @@index([matchId])
 }

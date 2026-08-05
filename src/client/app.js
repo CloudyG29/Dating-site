@@ -150,6 +150,19 @@ async function fetchDashboard() {
     console.error(err);
   }
 }
+async function fetchMessages(matchId) {
+  try {
+    const res = await fetch(`/api/messages/${matchId}`, {
+      headers: { Authorization: `Bearer ${state.authToken}` },
+    });
+    if (!res.ok) throw new Error("Failed to fetch messages");
+    const messages = await res.json();
+    return messages;
+  } catch (err) {
+    console.error(err);
+    return [];
+  }
+}
 async function handlePass(matchId) {
   try {
     const matchSection = document.getElementById("match-section");
