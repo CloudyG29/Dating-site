@@ -91,7 +91,7 @@ function renderMatchCard(m) {
   let actionSection;
 
   if (m.status === "REVEALED") {
-    actionSection = `<p style="color:var(--ink-3);font-size:0.9rem">You matched! Messaging coming soon.</p>`;
+    actionSection = `<a href="message.html?matchId=${m.matchId}" class="btn btn-gold">Start Chatting</a>`;
   } else if (m.consent === "PENDING") {
     actionSection = `
       <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.5rem">
