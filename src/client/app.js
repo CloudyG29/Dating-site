@@ -86,12 +86,12 @@ onAuthStateChanged(auth, async (user) => {
       window.location.href = "login.html";
     }
   }
+  actionSection = `<a href="message.html?matchId=${m.matchId}" class="btn btn-gold">Start Chatting</a>`;
 });
 function renderMatchCard(m) {
   let actionSection;
 
   if (m.status === "REVEALED") {
-    actionSection = `<a href="message.html?matchId=${m.matchId}" class="btn btn-gold">Start Chatting</a>`;
   } else if (m.consent === "PENDING") {
     actionSection = `
       <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.5rem">

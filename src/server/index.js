@@ -40,6 +40,7 @@ app.use(express.json({ limit: "2mb" }));
 app.use("/api/", apiLimiter);
 // ─── API Routes ───────────────────────────────────────────
 app.use("/api/matches", matchRoutes);
+app.use("/api/messages", messageRoutes);
 
 // ─── Logging ──────────────────────────────────────────────
 if (process.env.NODE_ENV !== "production") {
