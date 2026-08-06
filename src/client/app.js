@@ -235,6 +235,20 @@ async function handleSendMessage() {
     input.value = "";
   }
 }
+function renderConversationList(matches) {
+  if (matches.length === 0) {
+    return `<p>No conversations yet. Match with other users!</p>`;
+  }
+
+  return matches
+    .map(
+      (m) => `
+      <a href="message.html?matchId=${m.matchId}" class="conversation-item">
+        <span>${m.alias}</span>
+      </a>`,
+    )
+    .join("");
+}
 
 async function handlePass(matchId) {
   try {
