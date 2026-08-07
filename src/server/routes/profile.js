@@ -111,7 +111,7 @@ router.post("/", requireAuth, async (req, res) => {
     res.json({ success: true, profile });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to save profile" });
+    return res.status(500).json({ error: "Failed to save profile" });
   }
   try {
     await triggerMatching(user.id);
