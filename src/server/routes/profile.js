@@ -2,7 +2,12 @@ const express = require("express");
 const router = express.Router();
 const prisma = require("../lib/prisma");
 const { requireAuth } = require("../middleware/fire_auth");
-const { triggerMatching } = require("../services/matching");
+const {
+  triggerMatching,
+  vectorizeProfile,
+  assignToNearestCentroid,
+  CENTROIDS,
+} = require("../services/matching");
 
 // GET own profile
 router.get("/", requireAuth, async (req, res) => {
@@ -33,6 +38,7 @@ router.post("/", requireAuth, async (req, res) => {
     phone,
     displayAlias,
     bio,
+    age,
     values = [],
     goals = [],
     lifestyleTags = [],
@@ -41,6 +47,11 @@ router.post("/", requireAuth, async (req, res) => {
 
   if (!displayAlias || !bio) {
     return res.status(400).json({ error: "displayAlias and bio are required" });
+  }
+  if (!age || isNaN(age) || age < 18 || age > 99) {
+    return res
+      .status(400)
+      .json({ error: "A valid age between 18 and 99 is required" });
   }
   let user;
   try {
@@ -69,6 +80,7 @@ router.post("/", requireAuth, async (req, res) => {
           userId: user.id,
           displayAlias,
           bio,
+          age,
           values: JSON.stringify(values),
           goals: JSON.stringify(goals),
           lifestyleTags: JSON.stringify(lifestyleTags),
@@ -81,6 +93,7 @@ router.post("/", requireAuth, async (req, res) => {
         data: {
           displayAlias,
           bio,
+          age,
           values: JSON.stringify(values),
           goals: JSON.stringify(goals),
           lifestyleTags: JSON.stringify(lifestyleTags),
@@ -88,6 +101,12 @@ router.post("/", requireAuth, async (req, res) => {
         },
       });
     }
+    const vector = vectorizeProfile(profile);
+    const cluster = assignToNearestCentroid(vector, CENTROIDS);
+    profile = await prisma.profile.update({
+      where: { userId: user.id },
+      data: { clusterID: cluster },
+    });
 
     res.json({ success: true, profile });
   } catch (err) {

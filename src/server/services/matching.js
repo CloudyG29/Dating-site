@@ -55,9 +55,9 @@ async function triggerMatching(userId) {
   const candidates = await prisma.user.findMany({
     where: {
       id: { notIn: [...alreadyMatchedIds] },
-      profile: { isActive: true },
+      profile: { isActive: true, clusterID: newUser.profile.clusterID },
     },
-    include: { profile: true, clusterID: newUser.profile.clusterID },
+    include: { profile: true },
   });
 
   let bestMatch = null;
@@ -192,4 +192,10 @@ function computeScore(profileA, profileB) {
   return 100;
 }
 
-module.exports = { triggerMatching, formatMatchForUser };
+module.exports = {
+  triggerMatching,
+  formatMatchForUser,
+  vectorizeProfile,
+  assignToNearestCentroid,
+  CENTROIDS,
+};
