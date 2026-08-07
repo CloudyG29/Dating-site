@@ -71,6 +71,10 @@ onAuthStateChanged(auth, async (user) => {
         "matchId",
       );
       loadConversation(matchId);
+      loadChatHeader(matchId);
+    }
+    if (window.location.pathname.includes("conversations.html")) {
+      loadConversationsList();
     }
     if (window.location.pathname.includes("profile.html")) fetchUserProfile();
     if (window.location.pathname.includes("preferences.html"))
@@ -86,7 +90,6 @@ onAuthStateChanged(auth, async (user) => {
       window.location.href = "login.html";
     }
   }
-  actionSection = `<a href="message.html?matchId=${m.matchId}" class="btn btn-gold">Start Chatting</a>`;
 });
 function renderMatchCard(m) {
   let actionSection;
@@ -223,6 +226,22 @@ async function loadConversation(matchId) {
     renderMessage(msg);
   }
 }
+async function loadConversationsList() {
+  const matches = await fetchConversations();
+  document.getElementById("conversations-list").innerHTML =
+    renderConversationList(matches);
+}
+async function loadChatHeader(matchId) {
+  try {
+    const conversations = await fetchConversations();
+    const match = conversations.find((m) => m.matchId === matchId);
+    if (!match) return;
+    document.querySelector("#chat-header .header-name").textContent =
+      match.alias;
+  } catch (err) {
+    console.error(err);
+  }
+}
 async function handleSendMessage() {
   const matchId = new URLSearchParams(window.location.search).get("matchId");
   const input = document.getElementById("msg-input");
@@ -237,14 +256,14 @@ async function handleSendMessage() {
 }
 function renderConversationList(matches) {
   if (matches.length === 0) {
-    return `<p>No conversations yet. Match with other users!</p>`;
+    return `<p style="color:var(--ink-3);text-align:center;margin-top:2rem;">No conversations yet. Match with other users!</p>`;
   }
 
   return matches
     .map(
       (m) => `
-      <a href="message.html?matchId=${m.matchId}" class="conversation-item">
-        <span>${m.alias}</span>
+      <a href="message.html?matchId=${m.matchId}" style="display:flex;align-items:center;gap:1rem;padding:1rem 1.2rem;margin-bottom:0.75rem;background:var(--cream);border:1px solid var(--cream-2);border-radius:var(--r);text-decoration:none;color:var(--ink);">
+        <span style="font-family:var(--serif);font-size:1.1rem;color:var(--gold-dark);">${m.alias}</span>
       </a>`,
     )
     .join("");
