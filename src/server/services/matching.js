@@ -57,7 +57,7 @@ async function triggerMatching(userId) {
       id: { notIn: [...alreadyMatchedIds] },
       profile: { isActive: true },
     },
-    include: { profile: true },
+    include: { profile: true, clusterID: newUser.profile.clusterID },
   });
 
   let bestMatch = null;
