@@ -35,6 +35,7 @@ let state = {
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     state.authToken = await getIdToken(user, true);
+    state.uid = user.uid;
 
     const onRegisterPage = window.location.pathname.includes("register.html");
 
@@ -65,6 +66,16 @@ onAuthStateChanged(auth, async (user) => {
     }
 
     if (window.location.pathname.includes("dashboard.html")) fetchDashboard();
+    if (window.location.pathname.includes("message.html")) {
+      const matchId = new URLSearchParams(window.location.search).get(
+        "matchId",
+      );
+      loadConversation(matchId);
+      loadChatHeader(matchId);
+    }
+    if (window.location.pathname.includes("conversations.html")) {
+      loadConversationsList();
+    }
     if (window.location.pathname.includes("profile.html")) fetchUserProfile();
     if (window.location.pathname.includes("preferences.html"))
       fetchUserPreferences();
@@ -84,7 +95,7 @@ function renderMatchCard(m) {
   let actionSection;
 
   if (m.status === "REVEALED") {
-    actionSection = `<p style="color:var(--ink-3);font-size:0.9rem">You matched! Messaging coming soon.</p>`;
+    actionSection = `<a href="message.html?matchId=${m.matchId}" class="btn btn-gold">Start Chatting</a>`;
   } else if (m.consent === "PENDING") {
     actionSection = `
       <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.5rem">
@@ -150,6 +161,114 @@ async function fetchDashboard() {
     console.error(err);
   }
 }
+
+// ─── Messaging / Conversations ─────────────────────────────
+async function fetchMessages(matchId) {
+  try {
+    const res = await fetch(`/api/messages/${matchId}`, {
+      headers: { Authorization: `Bearer ${state.authToken}` },
+    });
+    if (!res.ok) throw new Error("Failed to fetch messages");
+    const messages = await res.json();
+    return messages;
+  } catch (err) {
+    console.error(err);
+    return [];
+  }
+}
+
+async function fetchConversations() {
+  try {
+    const res = await fetch(`/api/matches`, {
+      headers: { Authorization: `Bearer ${state.authToken}` },
+    });
+    if (!res.ok) throw new Error("Failed to fetch matches");
+    const { matches } = await res.json();
+    return matches.filter((m) => m.status === "REVEALED");
+  } catch (err) {
+    console.error(err);
+    return [];
+  }
+}
+async function sendMessage(matchId, content) {
+  try {
+    const res = await fetch(`/api/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${state.authToken}`,
+      },
+      body: JSON.stringify({ matchId, content }),
+    });
+    if (!res.ok) throw new Error("Failed to send message");
+    const message = await res.json();
+    return message;
+  } catch (err) {
+    console.error(err);
+    showNotif("Failed to send message.", "error");
+    return null;
+  }
+}
+function renderMessage(msg) {
+  const isMine = msg.senderUid === state.uid;
+  const div = document.createElement("div");
+  div.className = `msg ${isMine ? "mine" : "theirs"}`;
+  div.innerHTML = `
+    <div class="bubble">${msg.content}</div>
+    <div class="msg-time">${msg.sentAt}</div>
+  `;
+  document.getElementById("messages").appendChild(div);
+}
+async function loadConversation(matchId) {
+  document.getElementById("messages").innerHTML = ""; // clear previous messages
+  const messages = await fetchMessages(matchId);
+  for (const msg of messages) {
+    renderMessage(msg);
+  }
+}
+async function loadConversationsList() {
+  const matches = await fetchConversations();
+  document.getElementById("conversations-list").innerHTML =
+    renderConversationList(matches);
+}
+async function loadChatHeader(matchId) {
+  try {
+    const conversations = await fetchConversations();
+    const match = conversations.find((m) => m.matchId === matchId);
+    if (!match) return;
+    document.querySelector("#chat-header .header-name").textContent =
+      match.alias;
+  } catch (err) {
+    console.error(err);
+  }
+}
+async function handleSendMessage() {
+  const matchId = new URLSearchParams(window.location.search).get("matchId");
+  const input = document.getElementById("msg-input");
+  const content = input.value.trim();
+  if (!content) return;
+
+  const message = await sendMessage(matchId, content);
+  if (message) {
+    renderMessage(message);
+    input.value = "";
+  }
+}
+function renderConversationList(matches) {
+  if (matches.length === 0) {
+    return `<p style="color:var(--ink-3);text-align:center;margin-top:2rem;">No conversations yet. Match with other users!</p>`;
+  }
+
+  return matches
+    .map(
+      (m) => `
+      <a href="message.html?matchId=${m.matchId}" style="display:flex;align-items:center;gap:1rem;padding:1rem 1.2rem;margin-bottom:0.75rem;background:var(--cream);border:1px solid var(--cream-2);border-radius:var(--r);text-decoration:none;color:var(--ink);">
+        <span style="font-family:var(--serif);font-size:1.1rem;color:var(--gold-dark);">${m.alias}</span>
+      </a>`,
+    )
+    .join("");
+}
+
 async function handlePass(matchId) {
   try {
     const matchSection = document.getElementById("match-section");
@@ -512,3 +631,4 @@ window.showRegStep = showRegStep;
 window.regStep1 = regStep1;
 window.regStep2 = regStep2;
 window.submitProfileToBackend = submitProfileToBackend;
+window.handleSendMessage = handleSendMessage;
