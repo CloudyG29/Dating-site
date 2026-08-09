@@ -189,7 +189,15 @@ function euclideanDistance(a, b) {
 }
 
 function computeScore(profileA, profileB) {
-  return 100;
+  const vectorA = vectorizeProfile(profileA);
+  const vectorB = vectorizeProfile(profileB);
+  const distance = euclideanDistance(vectorA, vectorB);
+
+  // convert distance into a 0-100 score — smaller distance = higher score
+  const maxDistance = Math.sqrt(16); // theoretical max distance across 16 dimensions
+  const score = 100 * (1 - distance / maxDistance);
+
+  return score;
 }
 
 module.exports = {
